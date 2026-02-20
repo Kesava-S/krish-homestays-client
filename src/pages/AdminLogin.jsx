@@ -1,16 +1,25 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import API_URL from '../config';
 import { authContext } from '../App';
 
 const AdminLogin = () => {
 
-    const {token, setToken} = useContext(authContext);
+    const { token, setToken } = useContext(authContext);
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        if (token) {
+            navigate("/adminpanel")
+        }else{
+            navigate("/admin")
+        }
+    }, [token])
 
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const navigate = useNavigate();
+
 
     const handleLogin = async (e) => {
         e.preventDefault();

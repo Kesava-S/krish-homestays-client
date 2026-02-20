@@ -1,14 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import AdminDashboard from './AdminDashboard';
 import BookingList from './BookingList';
+import { authContext } from '../App';
+import { useNavigate } from 'react-router-dom';
 
 export default function AdminPanel() {
 
+  const { token, setToken } = useContext(authContext);
+
   const [activePage, setActivePage] = useState('dashboard');
+
+  const navigate = useNavigate();
+
+  if (!token) {
+    navigate("/admin")
+  }
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f4f6f8' }}>
-      
+
       {/* Sidebar */}
       <div style={{
         width: '220px',
