@@ -163,25 +163,26 @@ const BookingForm = () => {
 
         const fetchBooking = async () => {
             try {
-                const data = await fetch(
-                    `${import.meta.env.VITE_N8N_URL}/wh-enquiry?booking_id=${bookingId.booking_id}`
-                );            
+                const response = await fetch(
+                    `${import.meta.env.VITE_N8N_URL}/booking-enquiry?booking_id=${bookingId.booking_id}`
+                );
+                const data = await response.json();                
 
                 if (!data) return;
 
                 // populate form
                 setFormData({
-                    guest_name: data.guest_name || '',
-                    email: data.email || '',
-                    phone: data.phone_number || '',
-                    guests_count: data.guests_count || 6,
+                    guest_name: data['Guest Name'] || '',
+                    email: data['Email'] || '',
+                    phone: data['Phone Number'] || '',
+                    guests_count: data['Guests Count'] || 6,
                 });
 
                 // set calendar range
-                if (data.check_in_date && data.check_out_date) {
+                if (data['Check In Date'] && data['Check Out Date']) {
                     setDateRange([
-                        new Date(data.check_in_date),
-                        new Date(data.check_out_date)
+                        new Date(data['Check In Date']),
+                        new Date(data['Check Out Date'])
                     ]);
                 }
 
