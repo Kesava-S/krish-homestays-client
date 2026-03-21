@@ -478,7 +478,7 @@ const BookingForm = () => {
                             <div className="form-group">
                                 <label>Guests</label>
                                 <select value={formData.guests_count} onChange={e => setFormData({ ...formData, guests_count: parseInt(e.target.value) })}>
-                                    {[6, 7, 8, 9, 10, 11, 12, 13].map(n => <option key={n} value={n}>{n} Guests</option>)}
+                                    {[6, 7, 8, 9, 10].map(n => <option key={n} value={n}>{n} Guests</option>)}
                                 </select>
                             </div>
 
