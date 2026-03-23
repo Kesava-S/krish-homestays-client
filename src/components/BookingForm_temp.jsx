@@ -59,7 +59,7 @@ const CheckoutForm = ({ bookingData, onPaymentSuccess, onCancel }) => {
                 key: import.meta.env.VITE_RAZORPAY_KEY,
                 amount: data.order.amount,
                 currency: "INR",
-                name: "Krish Home Stay",
+                name: "Krish Homestays",
                 description: "Room Reservation",
                 order_id: data.order.id,
 

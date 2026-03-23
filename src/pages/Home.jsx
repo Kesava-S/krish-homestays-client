@@ -62,7 +62,7 @@ const Home = () => {
                 position: 'relative'
             }}>
                 <div className="hero-content" style={{ zIndex: 2 }}>
-                    <h1 style={{ fontSize: 'clamp(2.5rem, 5vw, 5rem)', marginBottom: '20px', color: 'white', textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}>Krish Homestay</h1>
+                    <h1 style={{ fontSize: 'clamp(2.5rem, 5vw, 5rem)', marginBottom: '20px', color: 'white', textShadow: '0 2px 10px rgba(0,0,0,0.3)' }}>Krish Homestays</h1>
                     <p style={{ fontSize: 'clamp(1rem, 2vw, 1.5rem)', marginBottom: '30px', maxWidth: '800px', margin: '0 auto 30px', textShadow: '0 1px 5px rgba(0,0,0,0.3)' }}>
                         Stay in a traditional Kerala home where tranquility and cleanliness come first.
                     </p>
@@ -103,7 +103,7 @@ const Home = () => {
                         </div>
                     </div>
                     <div>
-                        <img src="/assets/about_image.jpg" alt="About Krish Homestay" style={{ width: '100%', borderRadius: '20px', boxShadow: 'var(--shadow)' }} />
+                        <img src="/assets/about_image.jpg" alt="About Krish Homestays" style={{ width: '100%', borderRadius: '20px', boxShadow: 'var(--shadow)' }} />
                     </div>
                 </div>
             </section>
@@ -284,7 +284,7 @@ const Home = () => {
             <footer style={{ background: 'var(--bg-dark)', color: 'white', padding: '50px 0' }}>
                 <div className="container grid-3">
                     <div>
-                        <h3 style={{ color: 'white' }}>Krish Homestay</h3>
+                        <h3 style={{ color: 'white' }}>Krish Homestays</h3>
                         <p className="mt-4">Your home away from home in Munnar.</p>
                     </div>
                     <div>
@@ -307,7 +307,7 @@ const Home = () => {
                     </div>
                 </div>
                 <div className="text-center mt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px' }}>
-                    <p>&copy; 2025 Krish Homestay. All rights reserved.</p>
+                    <p>&copy; 2025 Krish Homestays. All rights reserved.</p>
                     <Link to="/admin" style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.8rem', textDecoration: 'none', marginLeft: '10px' }}>Admin</Link>
                 </div>
             </footer>

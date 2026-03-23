@@ -10,8 +10,8 @@ const Navbar = () => {
         <nav className="navbar glass-card">
             <div className="nav-container">
                 <Link to="/" className="logo">
-                    <img src="/assets/logo/logo.png" alt="Krish Homestay Logo" className="logo-img" />
-                    Krish Homestay
+                    <img src="/assets/logo/logo.png" alt="Krish Homestays Logo" className="logo-img" />
+                    Krish Homestays
                 </Link>
 
                 <div className={`nav-links ${isOpen ? 'active' : ''}`}>

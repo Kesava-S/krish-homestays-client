@@ -77,14 +77,14 @@ export default function Cancellation() {
                 <h2 className="text-center mb-3">Cancel Your Booking</h2>
 
                 <p>
-                    If you wish to cancel your booking at <b>Krish Homestay</b>, please read our
+                    If you wish to cancel your booking at <b>Krish Homestays</b>, please read our
                     cancellation policy carefully before proceeding.
                 </p>
                 <br />
                 <h4>📜 Cancellation Policy</h4>
                 <ul style={{ listStyle: 'none' }}>
-                    <li>✔ Free cancellation up to 48 hours before check-in.</li>
-                    <li>✔ 50% refund if cancelled within 24–48 hours before check-in.</li>
+                    <li>✔ Free cancellation up to 4 days before check-in.</li>
+                    <li>✔ 50% refund if cancelled within 4 days before check-in.</li>
                     <li>❌ No refund for same-day cancellations or no-shows.</li>
                     <li>✔ Refunds (if applicable) are processed within 5–7 working days.</li>
                 </ul>

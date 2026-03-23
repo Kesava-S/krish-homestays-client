@@ -121,7 +121,7 @@ export default function Review() {
         <div className="container" style={{ maxWidth: '600px', margin: '40px auto' }}>
             <div className="glass-card" style={{ padding: '30px' }}>
                 <h2 className="text-center mb-3">Leave a Review</h2>
-                <p className="text-center mb-4">We’d love to hear about your experience at <b>Krish Homestay</b>.</p>
+                <p className="text-center mb-4">We’d love to hear about your experience at <b>Krish Homestays</b>.</p>
 
                 <form onSubmit={handleSubmit}>
 
