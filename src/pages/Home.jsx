@@ -220,8 +220,8 @@ const Home = () => {
                         <div className="glass-card">
                             <h3>Cancellation Policy</h3>
                             <ul className="mt-3" style={{ listStyle: 'none', paddingLeft: 0 }}>
-                                <li><strong>Free cancellation:</strong> Up to 3–5 days before check-in.</li>
-                                <li><strong>50–75% charged:</strong> Within 3–5 days.</li>
+                                <li><strong>Free cancellation:</strong> Up to 4 days before check-in.</li>
+                                <li><strong>50% charged:</strong> Within 4 days.</li>
                                 <li><strong>No-show:</strong> Full amount charged.</li>
                             </ul>
                         </div>
