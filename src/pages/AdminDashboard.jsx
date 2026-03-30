@@ -12,7 +12,7 @@ const AdminDashboard = () => {
 
     const [dateRange, setDateRange] = useState(null);
     const [calendarData, setCalendarData] = useState({ bookedRanges: [], rules: {} });
-    const [price, setPrice] = useState(7000);
+    const [price, setPrice] = useState(10);
     const [status, setStatus] = useState('available');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
@@ -104,7 +104,7 @@ const AdminDashboard = () => {
             );
         }
 
-        return <div style={{ fontSize: '10px', color: '#888' }}>₹7000</div>;
+        return <div style={{ fontSize: '10px', color: '#888' }}>₹10</div>;
     };
 
     const handleLogout = () => {
