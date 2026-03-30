@@ -235,7 +235,8 @@ const BookingForm = () => {
 
     const getPriceForDate = (date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
-        return calendarData.rules[dateStr]?.price || 10;
+        // return calendarData.rules[dateStr]?.price || 7000;
+        return calendarData.rules[dateStr]?.price || 0;
     };
 
     const calculateTotal = () => {
