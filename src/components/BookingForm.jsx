@@ -243,7 +243,9 @@ const BookingForm = () => {
         if (!dateRange || !dateRange[0] || !dateRange[1]) return 0;
         let total = 0;
         let current = new Date(dateRange[0]);
+        current.setHours(0, 0, 0, 0); // ← add this
         const end = new Date(dateRange[1]);
+        end.setHours(0, 0, 0, 0);     // ← add this
         while (current < end) {
             total += getPriceForDate(current);
             current.setDate(current.getDate() + 1);
@@ -309,7 +311,7 @@ const BookingForm = () => {
 
         const checkIn = dateRange[0];
         const checkOut = dateRange[1];
-        const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+        const nights = Math.round((checkOut - checkIn) / (1000 * 60 * 60 * 24));
         if (nights < 1) {
             setError('Minimum stay is 1 night');
             return;
@@ -443,9 +445,13 @@ const BookingForm = () => {
         );
     }
 
-    const nights = dateRange && dateRange[0] && dateRange[1]
-        ? Math.ceil((dateRange[1] - dateRange[0]) / (1000 * 60 * 60 * 24))
-        : 0;
+    const nights = (() => {
+        if (!dateRange || !dateRange[0] || !dateRange[1]) return 0;
+        const start = new Date(dateRange[0]); start.setHours(0, 0, 0, 0);
+        const end = new Date(dateRange[1]); end.setHours(0, 0, 0, 0);
+        return Math.round((end - start) / (1000 * 60 * 60 * 24));
+    })();
+
     const totalAmount = calculateTotal();
 
     const getTileContent = ({ date, view }) => {
