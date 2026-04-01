@@ -163,7 +163,7 @@ export default function Cancellation() {
         setLoading(true);
 
         try {
-            const res = await fetch(`${import.meta.env.VITE_N8N_URL}/cancel-booking`, {
+            const res = await fetch(`${import.meta.env.VITE_N8N_URL}-test/cancel-booking`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -244,6 +244,7 @@ export default function Cancellation() {
                         <li>✅ <strong>4+ days before check-in</strong> — 100% refund</li>
                         <li>⚠️ <strong>Within 4 days of check-in</strong> — 50% refund</li>
                         <li>❌ <strong>Same day / No show</strong> — No refund</li>
+                        <li>🕐 Refunds processed within <strong>5–7 business days</strong></li>
                     </ul>
                 </div>
 
