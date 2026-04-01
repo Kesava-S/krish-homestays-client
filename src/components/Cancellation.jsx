@@ -163,7 +163,7 @@ export default function Cancellation() {
         setLoading(true);
 
         try {
-            const res = await fetch(`${import.meta.env.VITE_N8N_URL}-test/cancel-booking`, {
+            const res = await fetch(`${import.meta.env.VITE_N8N_URL}/cancel-booking`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
