@@ -390,7 +390,10 @@ const BookingForm = () => {
                 setPaymentStatus('failed');
                 setError('Payment failed. We will remind you shortly.');
                 return;
-            }            
+            }
+
+            console.log(webhookPayload);
+
 
             generateReceiptAndNotify(webhookPayload);
             setPaymentStatus('success');
@@ -404,25 +407,40 @@ const BookingForm = () => {
         }
     };
 
-    const generateReceiptAndNotify = async (webhookPayload) => {        
+    // const generateReceiptAndNotify = async (webhookPayload) => {        
+    //     try {
+    //         const receiptRes = await fetch(`${import.meta.env.VITE_API_URL}/api/generate-receipt`, {
+    //             method: 'POST',
+    //             headers: { 'Content-Type': 'application/json' },
+    //             body: JSON.stringify(webhookPayload),
+    //         });
+    //         const receiptData = await receiptRes.json();
+
+    //         console.log("receipt sent...");
+
+    //         await fetch(`${import.meta.env.VITE_N8N_URL}/receipt-ready`, {
+    //             method: 'POST',
+    //             headers: { 'Content-Type': 'application/json' },
+    //             body: JSON.stringify({
+    //                 ...webhookPayload,
+    //                 receipt: receiptData,
+    //             }),
+    //         });
+    //     } catch (err) {
+    //         console.error('Receipt flow failed', err);
+    //     }
+    // };
+
+    const generateReceiptAndNotify = async (webhookPayload) => {
         try {
-            const receiptRes = await fetch(`${import.meta.env.VITE_API_URL}/api/generate-receipt`, {
+            await fetch(`${import.meta.env.VITE_API_URL}/api/send-receipt`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(webhookPayload),
             });
-            const receiptData = await receiptRes.json();
 
-            console.log("receipt sent...");
-            
-            await fetch(`${import.meta.env.VITE_N8N_URL}/receipt-ready`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...webhookPayload,
-                    receipt: receiptData,
-                }),
-            });
+            console.log("Receipt email sent...");
+
         } catch (err) {
             console.error('Receipt flow failed', err);
         }
