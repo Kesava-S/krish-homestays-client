@@ -4,6 +4,7 @@ import 'react-calendar/dist/Calendar.css';
 import { format } from 'date-fns';
 import API_URL from '../config';
 import './BookingForm.css';
+import { useParams } from 'react-router-dom';
 
 const loadRazorpayScript = () => {
     return new Promise((resolve) => {
@@ -11,14 +12,11 @@ const loadRazorpayScript = () => {
             resolve(true);
             return;
         }
-
         const script = document.createElement("script");
         script.src = "https://checkout.razorpay.com/v1/checkout.js";
         script.async = true;
-
         script.onload = () => resolve(true);
         script.onerror = () => resolve(false);
-
         document.body.appendChild(script);
     });
 };
@@ -99,7 +97,7 @@ const CheckoutForm = ({ bookingData, onPaymentSuccess, onCancel }) => {
             rzp.open();
 
         } catch (err) {
-            setError("Payment failed");
+            setError("Payment failed. Please try again.");
         } finally {
             setProcessing(false);
         }
@@ -138,30 +136,81 @@ const BookingForm = () => {
         phone: '',
         guests_count: 6,
     });
-    const [step, setStep] = useState('details'); // details, payment, success
+    const [step, setStep] = useState('details');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [paymentStatus, setPaymentStatus] = useState('idle');
-    // idle | verifying | success | failed
-
     const [confirmBookingId, setBookingId] = useState('');
+    const [dateConflict, setDateConflict] = useState(false);
 
+    const { booking_id } = useParams();
+
+    // ─── Fetch calendar data ───────────────────────────────────────────
     useEffect(() => {
         fetch(`${API_URL}/api/calendar-data`)
             .then(res => res.json())
-            .then(data => {
-                setCalendarData(data);
-            })
+            .then(data => setCalendarData(data))
             .catch(err => console.error(err));
     }, []);
 
+    // ─── Fetch booking from link ───────────────────────────────────────
+    useEffect(() => {
+        if (!booking_id) return;
+
+        const fetchBooking = async () => {
+            try {
+                const response = await fetch(
+                    `${import.meta.env.VITE_N8N_URL}/booking-enquiry?booking_id=${booking_id}`
+                );
+                const raw = await response.json();
+                const data = Array.isArray(raw) ? raw[0] : raw;
+                if (!data || !data['Booking_id']) return;
+
+                setFormData({
+                    guest_name: data['Guest Name'] || '',
+                    email: data['Email'] || '',
+                    phone: data['Phone Number'] || '',
+                    guests_count: data['Guest Count'] || 6,
+                });
+
+                if (data['Check In Date'] && data['Check Out Date']) {
+                    const checkIn = new Date(data['Check In Date']);
+                    const checkOut = new Date(data['Check Out Date']);
+                    setDateRange([checkIn, checkOut]);
+                }
+
+                setBookingId(data['Booking_id']);
+
+            } catch (err) {
+                console.error("Failed to load booking", err);
+            }
+        };
+
+        fetchBooking();
+    }, [booking_id]);
+
+    // ─── Check conflict whenever dateRange OR calendarData changes ─────
+    useEffect(() => {
+        if (!dateRange || !dateRange[0] || !dateRange[1]) {
+            setDateConflict(false);
+            return;
+        }
+
+        const hasData =
+            calendarData.bookedRanges.length > 0 ||
+            Object.keys(calendarData.rules).length > 0;
+
+        if (!hasData) return;
+
+        const conflict = isRangeUnavailable(dateRange[0], dateRange[1]);
+        setDateConflict(conflict);
+    }, [dateRange, calendarData]);
+
+
+    // ─── Date helpers ──────────────────────────────────────────────────
     const isDateUnavailable = (date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
         if (calendarData.rules[dateStr]?.status === 'blocked') return true;
-
-        console.log(calendarData.bookedRanges);
-
-
         return calendarData.bookedRanges.some(range => {
             const start = new Date(range.start);
             const end = new Date(range.end);
@@ -173,16 +222,30 @@ const BookingForm = () => {
         });
     };
 
+    const isRangeUnavailable = (start, end) => {
+        if (!start || !end) return false;
+        let current = new Date(start);
+        const endDate = new Date(end);
+        while (current < endDate) {
+            if (isDateUnavailable(current)) return true;
+            current.setDate(current.getDate() + 1);
+        }
+        return false;
+    };
+
     const getPriceForDate = (date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
         return calendarData.rules[dateStr]?.price || 7000;
+        // return calendarData.rules[dateStr]?.price || 1;
     };
 
     const calculateTotal = () => {
         if (!dateRange || !dateRange[0] || !dateRange[1]) return 0;
         let total = 0;
         let current = new Date(dateRange[0]);
+        current.setHours(0, 0, 0, 0); // ← add this
         const end = new Date(dateRange[1]);
+        end.setHours(0, 0, 0, 0);     // ← add this
         while (current < end) {
             total += getPriceForDate(current);
             current.setDate(current.getDate() + 1);
@@ -190,37 +253,57 @@ const BookingForm = () => {
         return total;
     };
 
+
+    // ─── Validation ────────────────────────────────────────────────────
     const isValidName = (name) => /^[A-Za-z\s]{3,}$/.test(name);
     const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     const isValidPhone = (phone) => /^(\+91)?[6-9]\d{9}$/.test(phone);
 
-
     const generateBookingId = () => {
-        const date = new Date();
-        const yyyyMMdd = date.toISOString().slice(0, 10).replace(/-/g, '');
-        const random = Math.floor(1000 + Math.random() * 9000);
-        return `KH-${yyyyMMdd}-${random}`;
+        if (!dateRange || !dateRange[0]) return "KH-INVALID";
+        const d = new Date(dateRange[0]);
+        const yyyyMMdd = d.toISOString().slice(0, 10).replace(/-/g, '');
+        const unique = (Date.now().toString(36) + Math.random().toString(36).substr(2, 4)).toUpperCase();
+        const shortSuffix = unique.slice(-5);
+        return `KH-${yyyyMMdd}-${shortSuffix}`;
+    };
+
+
+    // ─── Handlers ──────────────────────────────────────────────────────
+    const handleDateChange = (range) => {
+        setDateRange(range);
+        setError('');
+
+        if (range && range[0] && range[1]) {
+            const conflict = isRangeUnavailable(range[0], range[1]);
+            setDateConflict(conflict);
+        } else {
+            setDateConflict(false);
+        }
     };
 
     const handleDetailsSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
-        if (!isValidName(formData.guest_name)) {
-            setError('Please enter a valid full name');
+        // ✅ Safety: block if dates are unavailable
+        if (dateConflict) {
+            setError('Selected dates are booked or blocked. Please choose different dates.');
             return;
         }
 
+        if (!isValidName(formData.guest_name)) {
+            setError('Please enter a valid full name (letters only, min 3 characters)');
+            return;
+        }
         if (!isValidEmail(formData.email)) {
             setError('Please enter a valid email address');
             return;
         }
-
         if (!isValidPhone(formData.phone)) {
-            setError('Please enter a valid phone number');
+            setError('Please enter a valid Indian phone number');
             return;
         }
-
         if (!dateRange || !dateRange[0] || !dateRange[1]) {
             setError('Please select check-in and check-out dates');
             return;
@@ -228,45 +311,40 @@ const BookingForm = () => {
 
         const checkIn = dateRange[0];
         const checkOut = dateRange[1];
-
-        const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+        const nights = Math.round((checkOut - checkIn) / (1000 * 60 * 60 * 24));
         if (nights < 1) {
             setError('Minimum stay is 1 night');
             return;
         }
 
-        const newBookingId = generateBookingId()
+        // ✅ Double-check conflict right before proceeding
+        const conflict = isRangeUnavailable(checkIn, checkOut);
+        if (conflict) {
+            setError('Selected dates are booked or blocked. Please choose different dates.');
+            setDateConflict(true);
+            return;
+        }
 
-        try {
-            const res = await fetch(`${import.meta.env.VITE_N8N_URL}/booking`, {
+        const newBookingId = confirmBookingId || generateBookingId();
+        if (!confirmBookingId) setBookingId(newBookingId);
+
+        if (!booking_id) {
+            fetch(`${import.meta.env.VITE_N8N_URL}/registeration`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     booking_id: newBookingId,
-                    guest_name: formData.guest_name,
-                    email: formData.email,
-                    phone: formData.phone,
-                    check_in_date: checkIn.toISOString().split('T')[0],
-                    check_out_date: checkOut.toISOString().split('T')[0],
-                    guests_count: formData.guests_count,
-                    payment: {
-                        status: 'pending'
-                    },
-                    payment_id: null
+                    ...formData,
+                    check_in_date: format(checkIn, 'yyyy-MM-dd'),
+                    check_out_date: format(checkOut, 'yyyy-MM-dd'),
+                    source: 'website',
+                    timestamp: new Date().toISOString(),
+                    payment: { status: 'enquiry' }
                 })
-            });
-
-            if (!res.ok) throw new Error('Failed to save booking');
-
-            const data = await res.json();
-
-            // store booking id for later payment update
-            setBookingId(newBookingId);
-
-            setStep('payment');
-        } catch (err) {
-            setError('Unable to proceed. Please try again.');
+            }).catch(err => console.error('Enquiry webhook failed', err));
         }
+
+        setStep('payment');
     };
 
     const handlePaymentSuccess = async (status, paymentDetails = {}) => {
@@ -283,11 +361,10 @@ const BookingForm = () => {
             total_amount: totalAmount
         };
 
-        // 🔹 COMMON webhook payload
         const webhookPayload = {
             booking: bookingPayload,
             payment: {
-                status: status === 'verified' ? 'confirmed' : 'failed',
+                status: status === 'verified' ? 'booked' : 'failed',
                 booking_id: bookingId,
                 payment_id: paymentDetails?.razorpay_payment_id || null,
                 order_id: paymentDetails?.razorpay_order_id || null,
@@ -303,7 +380,6 @@ const BookingForm = () => {
         };
 
         try {
-            // 🔥 HIT n8n webhook (for BOTH success & failure)
             fetch(`${import.meta.env.VITE_N8N_URL}/registeration`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -316,7 +392,10 @@ const BookingForm = () => {
                 return;
             }
 
-            // ✅ Payment verified
+            console.log(webhookPayload);
+
+
+            generateReceiptAndNotify(webhookPayload);
             setPaymentStatus('success');
             setStep('success');
 
@@ -328,25 +407,82 @@ const BookingForm = () => {
         }
     };
 
+    // const generateReceiptAndNotify = async (webhookPayload) => {        
+    //     try {
+    //         const receiptRes = await fetch(`${import.meta.env.VITE_API_URL}/api/generate-receipt`, {
+    //             method: 'POST',
+    //             headers: { 'Content-Type': 'application/json' },
+    //             body: JSON.stringify(webhookPayload),
+    //         });
+    //         const receiptData = await receiptRes.json();
+
+    //         console.log("receipt sent...");
+
+    //         await fetch(`${import.meta.env.VITE_N8N_URL}/receipt-ready`, {
+    //             method: 'POST',
+    //             headers: { 'Content-Type': 'application/json' },
+    //             body: JSON.stringify({
+    //                 ...webhookPayload,
+    //                 receipt: receiptData,
+    //             }),
+    //         });
+    //     } catch (err) {
+    //         console.error('Receipt flow failed', err);
+    //     }
+    // };
+
+    const generateReceiptAndNotify = async (webhookPayload) => {
+        try {
+            await fetch(`${import.meta.env.VITE_API_URL}/api/send-receipt`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(webhookPayload),
+            });
+
+            console.log("Receipt email sent...");
+
+        } catch (err) {
+            console.error('Receipt flow failed', err);
+        }
+    };
+
+
+    // ─── Render ────────────────────────────────────────────────────────
     if (step === 'success') {
         return (
             <div className="glass-card text-center section" style={{ padding: '50px' }}>
+                <div style={{ fontSize: '60px', marginBottom: '20px' }}>✅</div>
                 <h2 style={{ color: 'var(--primary)', marginBottom: '20px' }}>Booking Confirmed!</h2>
-                <p>Thank you, {formData.guest_name}.</p>
+                <p>Thank you, <strong>{formData.guest_name}</strong>.</p>
                 <p>We have sent a confirmation to <strong>{formData.email}</strong>.</p>
-                <button className="btn btn-primary mt-4" onClick={() => window.location.reload()}>Book Another Stay</button>
+                <button
+                    className="btn btn-primary mt-4"
+                    onClick={() => window.location.href = '/book'}
+                >
+                    Book Another Stay
+                </button>
             </div>
         );
     }
 
-    const nights = dateRange && dateRange[0] && dateRange[1] ? Math.ceil((dateRange[1] - dateRange[0]) / (1000 * 60 * 60 * 24)) : 0;
+    const nights = (() => {
+        if (!dateRange || !dateRange[0] || !dateRange[1]) return 0;
+        const start = new Date(dateRange[0]); start.setHours(0, 0, 0, 0);
+        const end = new Date(dateRange[1]); end.setHours(0, 0, 0, 0);
+        return Math.round((end - start) / (1000 * 60 * 60 * 24));
+    })();
+
     const totalAmount = calculateTotal();
 
     const getTileContent = ({ date, view }) => {
         if (view !== 'month') return null;
         if (isDateUnavailable(date)) return null;
         const price = getPriceForDate(date);
-        return <div style={{ fontSize: '10px', color: '#888', marginTop: '2px' }}>₹{price}</div>;
+        return (
+            <div style={{ fontSize: '10px', color: '#888', marginTop: '2px' }}>
+                ₹{price}
+            </div>
+        );
     };
 
     return (
@@ -365,48 +501,127 @@ const BookingForm = () => {
 
                 {step === 'details' ? (
                     <div className="booking-grid">
+
+                        {/* ── Calendar ── */}
                         <div className="calendar-section">
                             <Calendar
                                 selectRange={true}
-                                onChange={setDateRange}
+                                onChange={handleDateChange}
                                 value={dateRange}
                                 tileDisabled={({ date }) => isDateUnavailable(date)}
                                 tileContent={getTileContent}
                                 minDate={new Date()}
                                 className="custom-calendar"
                             />
+
+                            {/* Date summary */}
                             <div className="mt-4 text-center" style={{ fontWeight: '500', color: 'var(--primary)' }}>
-                                {nights > 0 ?
-                                    `${format(dateRange[0], 'MMM dd')} - ${format(dateRange[1], 'MMM dd')} (${nights} nights)`
+                                {nights > 0
+                                    ? `${format(dateRange[0], 'MMM dd')} - ${format(dateRange[1], 'MMM dd')} (${nights} nights)`
                                     : 'Select Check-in and Check-out dates'}
                             </div>
+
+                            {/* ✅ Date conflict warning under calendar */}
+                            {dateConflict && (
+                                <div style={{
+                                    marginTop: '12px',
+                                    background: '#fff3f3',
+                                    border: '1px solid #ff4444',
+                                    borderRadius: '8px',
+                                    padding: '12px 16px',
+                                    color: '#cc0000',
+                                    fontWeight: '500',
+                                    fontSize: '14px',
+                                    textAlign: 'center'
+                                }}>
+                                    ⚠️ One or more selected dates are already booked or blocked.
+                                    Please choose different dates.
+                                </div>
+                            )}
                         </div>
 
+                        {/* ── Form ── */}
                         <form onSubmit={handleDetailsSubmit} className="form-section">
                             <div className="form-group">
                                 <label>Full Name</label>
-                                <input type="text" value={formData.guest_name} onChange={e => setFormData({ ...formData, guest_name: e.target.value })} placeholder="John Doe" />
+                                <input
+                                    type="text"
+                                    value={formData.guest_name}
+                                    onChange={e => setFormData({ ...formData, guest_name: e.target.value })}
+                                    placeholder="John Doe"
+                                />
                             </div>
                             <div className="form-group">
                                 <label>Email</label>
-                                <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} placeholder="john@example.com" />
+                                <input
+                                    type="email"
+                                    value={formData.email}
+                                    onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                    placeholder="john@example.com"
+                                />
                             </div>
                             <div className="form-group">
                                 <label>Phone / WhatsApp</label>
-                                <input type="tel" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} placeholder="+91 98765 43210" />
+                                <input
+                                    type="tel"
+                                    value={formData.phone}
+                                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                    placeholder="+91 98765 43210"
+                                />
                             </div>
                             <div className="form-group">
                                 <label>Guests</label>
-                                <select value={formData.guests_count} onChange={e => setFormData({ ...formData, guests_count: parseInt(e.target.value) })}>
-                                    {[6, 7, 8, 9, 10, 11, 12].map(n => <option key={n} value={n}>{n} Guests</option>)}
+                                <select
+                                    value={formData.guests_count}
+                                    onChange={e => setFormData({ ...formData, guests_count: parseInt(e.target.value) })}
+                                >
+                                    {[6, 7, 8, 9, 10].map(n => (
+                                        <option key={n} value={n}>{n} Guests</option>
+                                    ))}
                                 </select>
                             </div>
 
-                            {error && <div className="error-message">{error}</div>}
+                            {/* Total preview */}
+                            {nights > 0 && !dateConflict && (
+                                <div style={{
+                                    background: 'var(--bg-light)',
+                                    borderRadius: '8px',
+                                    padding: '12px 16px',
+                                    marginBottom: '16px',
+                                    fontSize: '15px'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>₹{getPriceForDate(dateRange[0])} × {nights} nights</span>
+                                        <strong>₹{totalAmount}</strong>
+                                    </div>
+                                </div>
+                            )}
 
-                            <button type="submit" className="btn btn-primary" style={{ width: '100%', fontSize: '1.1rem' }}>
-                                Proceed to Payment
+                            {/* Errors */}
+                            {error && (
+                                <div className="error-message" style={{ marginBottom: '12px' }}>
+                                    {error}
+                                </div>
+                            )}
+
+                            {/* ✅ Proceed button — disabled when conflict */}
+                            <button
+                                type="submit"
+                                className="btn btn-primary"
+                                style={{
+                                    width: '100%',
+                                    fontSize: '1.1rem',
+                                    opacity: dateConflict ? 0.5 : 1,
+                                    cursor: dateConflict ? 'not-allowed' : 'pointer'
+                                }}
+                                disabled={dateConflict}
+                            >
+                                {dateConflict ? '🚫 Dates Unavailable' : 'Proceed to Payment'}
                             </button>
+
+                            <p style={{ fontSize: '12px', color: '#888', textAlign: 'center', marginTop: '10px' }}>
+                                🔒 Secured by Razorpay
+                            </p>
                         </form>
                     </div>
                 ) : (

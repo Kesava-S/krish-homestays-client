@@ -47,6 +47,15 @@
     cursor: not-allowed !important;
 }
 
+.react-calendar__tile.partially-booked {
+    background-color: #fff8e1 !important;
+    border: 1px solid #f0c040 !important;
+}
+
+.react-calendar__tile.partially-booked:not(:disabled):hover {
+    background-color: #fdeea3 !important;
+}
+
 .payment-details p {
     font-size: 30px;
 }

@@ -13,7 +13,7 @@ export default function BookingList() {
 
     const [modalMode, setModalMode] = useState('view'); // view | edit
 
-    const [reviewData, setReviewData] = useState(null);
+    const [, setReviewData] = useState(null);
 
 
     // 🔹 Fetch Bookings
@@ -238,9 +238,15 @@ export default function BookingList() {
                                 <input type="text" value={selectedRow?.phone} disabled />
                             </div>
 
-                            <div>
-                                <label>Guests</label>
-                                <input type="number" value={selectedRow?.guests_count} disabled />
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                <div>
+                                    <label>Adults</label>
+                                    <input type="number" value={selectedRow?.adults ?? '—'} disabled />
+                                </div>
+                                <div>
+                                    <label>Children</label>
+                                    <input type="number" value={selectedRow?.children ?? '—'} disabled />
+                                </div>
                             </div>
 
                             <div>
