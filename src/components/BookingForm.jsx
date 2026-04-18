@@ -31,6 +31,32 @@ const loadRazorpayScript = () => {
 
 const ROOM_PRICE = { remaining: 2000, partial: 5000, full: 7000 };
 
+const COUNTRY_CODES = [
+    { code: '+91',  label: '🇮🇳 +91'  },
+    { code: '+1',   label: '🇺🇸 +1'   },
+    { code: '+44',  label: '🇬🇧 +44'  },
+    { code: '+61',  label: '🇦🇺 +61'  },
+    { code: '+65',  label: '🇸🇬 +65'  },
+    { code: '+60',  label: '🇲🇾 +60'  },
+    { code: '+971', label: '🇦🇪 +971' },
+    { code: '+974', label: '🇶🇦 +974' },
+    { code: '+966', label: '🇸🇦 +966' },
+    { code: '+968', label: '🇴🇲 +968' },
+    { code: '+973', label: '🇧🇭 +973' },
+    { code: '+49',  label: '🇩🇪 +49'  },
+    { code: '+33',  label: '🇫🇷 +33'  },
+    { code: '+39',  label: '🇮🇹 +39'  },
+    { code: '+81',  label: '🇯🇵 +81'  },
+    { code: '+82',  label: '🇰🇷 +82'  },
+    { code: '+86',  label: '🇨🇳 +86'  },
+    { code: '+94',  label: '🇱🇰 +94'  },
+    { code: '+977', label: '🇳🇵 +977' },
+    { code: '+880', label: '🇧🇩 +880' },
+    { code: '+27',  label: '🇿🇦 +27'  },
+    { code: '+55',  label: '🇧🇷 +55'  },
+    { code: '+52',  label: '🇲🇽 +52'  },
+];
+
 // Keyed by adults → max children for the partial (excluding-one-room) option.
 // These groups can choose either partial or full villa.
 //   3 adults → max 6 children
@@ -146,7 +172,7 @@ const CheckoutForm = ({ bookingData, onPaymentSuccess, onCancel }) => {
                 prefill: {
                     name: bookingData.guest_name,
                     email: bookingData.email,
-                    contact: bookingData.phone,
+                    contact: bookingData.phone, // already combined country_code + number
                 },
                 theme: { color: "#3399cc" }
             };
@@ -190,6 +216,7 @@ const BookingForm = () => {
     const [formData, setFormData] = useState({
         guest_name: '',
         email: '',
+        country_code: '+91',
         phone: '',
         adults: 3,
         children: 0,
@@ -339,7 +366,7 @@ const BookingForm = () => {
     // ─── Validation ────────────────────────────────────────────────
     const isValidName  = (name)  => /^[A-Za-z\s]{3,}$/.test(name);
     const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    const isValidPhone = (phone) => /^(\+91)?[6-9]\d{9}$/.test(phone);
+    const isValidPhone = (phone) => /^\d{6,15}$/.test(phone.replace(/[\s\-()]/g, ''));
 
     const generateBookingId = () => {
         if (!dateRange || !dateRange[0]) return "KH-INVALID";
@@ -407,7 +434,7 @@ const BookingForm = () => {
             return;
         }
         if (!isValidPhone(formData.phone)) {
-            setError('Please enter a valid Indian phone number');
+            setError('Please enter a valid phone number (digits only, 6–15 digits)');
             return;
         }
         if (!dateRange || !dateRange[0] || !dateRange[1]) {
@@ -446,7 +473,7 @@ const BookingForm = () => {
                     booking_id: newBookingId,
                     guest_name: formData.guest_name,
                     email: formData.email,
-                    phone: formData.phone,
+                    phone: formData.country_code + formData.phone,
                     adults: formData.adults,
                     children: formData.children,
                     room_type: formData.room_type,
@@ -477,7 +504,7 @@ const BookingForm = () => {
             booking_id: bookingId,
             guest_name: formData.guest_name,
             email: formData.email,
-            phone: formData.phone,
+            phone: formData.country_code + formData.phone,
             adults: formData.adults,
             children: formData.children,
             room_type: formData.room_type,
@@ -715,12 +742,24 @@ const BookingForm = () => {
                             </div>
                             <div className="form-group">
                                 <label>Phone / WhatsApp</label>
-                                <input
-                                    type="tel"
-                                    value={formData.phone}
-                                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                    placeholder="+91 98765 43210"
-                                />
+                                <div className="phone-input-group">
+                                    <select
+                                        className="phone-country-select"
+                                        value={formData.country_code}
+                                        onChange={e => setFormData({ ...formData, country_code: e.target.value })}
+                                    >
+                                        {COUNTRY_CODES.map(c => (
+                                            <option key={c.code} value={c.code}>{c.label}</option>
+                                        ))}
+                                    </select>
+                                    <input
+                                        className="phone-number-input"
+                                        type="tel"
+                                        value={formData.phone}
+                                        onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                        placeholder="98765 43210"
+                                    />
+                                </div>
                             </div>
 
                             {/* ── Guest Count ── */}
@@ -793,7 +832,7 @@ const BookingForm = () => {
                 ) : (
                     <div className="payment-section">
                         <CheckoutForm
-                            bookingData={{ ...formData, total_amount: totalAmount }}
+                            bookingData={{ ...formData, phone: formData.country_code + formData.phone, total_amount: totalAmount }}
                             onPaymentSuccess={handlePaymentSuccess}
                             onCancel={() => setStep("details")}
                             paymentStatus={paymentStatus}

@@ -60,6 +60,21 @@
     font-size: 30px;
 }
 
+.phone-input-group {
+    display: flex;
+    gap: 8px;
+}
+
+.phone-country-select {
+    flex: 0 0 auto;
+    width: 110px;
+}
+
+.phone-number-input {
+    flex: 1;
+    min-width: 0;
+}
+
 .error-message {
     color: red;
     margin-bottom: 20px;
