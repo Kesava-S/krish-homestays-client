@@ -440,10 +440,7 @@ const BookingForm = () => {
         const newBookingId = confirmBookingId || generateBookingId();
         if (!confirmBookingId) setBookingId(newBookingId);
 
-        // guests_count encodes room type for calendar logic
-        const guests_count = formData.room_type === 'remaining' ? 4
-            : formData.room_type === 'partial' ? 5
-            : 11;
+        const guests_count = formData.adults + formData.children;
 
         if (!booking_id) {
             fetch(`${import.meta.env.VITE_N8N_URL}/registeration`, {
@@ -476,9 +473,7 @@ const BookingForm = () => {
         const totalAmount = calculateTotal();
         const bookingId   = confirmBookingId;
 
-        const guests_count = formData.room_type === 'remaining' ? 4
-            : formData.room_type === 'partial' ? 5
-            : 11;
+        const guests_count = formData.adults + formData.children;
 
         const bookingPayload = {
             booking_id: bookingId,
