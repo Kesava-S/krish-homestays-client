@@ -225,22 +225,37 @@ const BookingForm = () => {
                 const response = await fetch(
                     `${import.meta.env.VITE_N8N_URL}/booking-enquiry?booking_id=${booking_id}`
                 );
+                
                 const raw = await response.json();
                 const data = Array.isArray(raw) ? raw[0] : raw;
-                if (!data || !data['Booking_id']) return;
+                console.log(data);
+                
+                if (!data || !data['Booking Id']) return;
 
-                const guestFields = legacyCountToFields(data['Guest Count'] || 11);
+                const adults   = parseInt(data['Guest Adults'])   || 3;
+                const children = parseInt(data['Guest Children']) || 0;
+                const typeRaw  = (data['Booking Type'] || '').toLowerCase();
+                const room_type = typeRaw.includes('partial') || typeRaw.includes('half')
+                    ? 'partial'
+                    : typeRaw.includes('remaining')
+                    ? 'remaining'
+                    : 'full';
+
                 setFormData({
-                    guest_name: data['Guest Name'] || '',
-                    email: data['Email'] || '',
-                    phone: data['Phone Number'] || '',
-                    ...guestFields,
+                    guest_name:   data['Guest Name']    || '',
+                    email:        data['Email']         || '',
+                    country_code: '+91',
+                    phone:        String(data['Phone Number'] || ''),
+                    adults,
+                    children,
+                    room_type,
                 });
 
                 if (data['Check In Date'] && data['Check Out Date']) {
                     setDateRange([new Date(data['Check In Date']), new Date(data['Check Out Date'])]);
                 }
-                setBookingId(data['Booking_id']);
+
+                setBookingId(data['Booking Id']);
             } catch (err) {
                 console.error("Failed to load booking", err);
             }

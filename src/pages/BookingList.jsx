@@ -69,9 +69,6 @@ export default function BookingList() {
                 check_out_date: new Date(selectedRow.check_out_date).toISOString()
             }
 
-            console.log(selectedRow);
-
-
             const res = await fetch(`${import.meta.env.VITE_N8N_URL}/update-booking`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
