@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import API_URL from '../config';
 import './BookingForm.css';
 import { useParams } from 'react-router-dom';
+import Swal from 'sweetalert2';
 
 const loadRazorpayScript = () => {
     return new Promise((resolve) => {
@@ -225,20 +226,27 @@ const BookingForm = () => {
                 const response = await fetch(
                     `${import.meta.env.VITE_N8N_URL}/booking-enquiry?booking_id=${booking_id}`
                 );
-                
-                const raw = await response.json();
-                const data = Array.isArray(raw) ? raw[0] : raw;
-                
-                if (!data || !data['Booking Id']) return;
+
+                const data1 = await response.json();
+
+                if (!data1.success) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Not Found',
+                        text: data1.error || 'Booking data not found or invalid.',
+                        confirmButtonColor: '#3399cc',
+                    });
+                    return;
+                }
+
+                const data = data1.data;
 
                 const adults   = parseInt(data['Guest Adults'])   || 3;
                 const children = parseInt(data['Guest Children']) || 0;
                 const typeRaw  = (data['Booking Type'] || '').toLowerCase();
-                const room_type = typeRaw.includes('partial') || typeRaw.includes('half')
-                    ? 'partial'
-                    : typeRaw.includes('remaining')
-                    ? 'remaining'
-                    : 'full';
+                const room_type = typeRaw.includes('half villa')
+                    ? 'half villa'
+                    : 'full villa';
 
                 setFormData({
                     guest_name:   data['Guest Name']    || '',
@@ -640,8 +648,8 @@ const BookingForm = () => {
                         disabled={!datesSelected}
                         style={{ opacity: datesSelected ? 1 : 0.5 }}
                     >
-                        <option value="partial">Excluding one room — ₹5,000/night</option>
-                        <option value="full">Full villa — ₹7,000/night</option>
+                        <option value="half villa">Excluding one room — ₹5,000/night</option>
+                        <option value="full villa">Full villa — ₹7,000/night</option>
                     </select>
                     {!datesSelected && (
                         <p style={{ fontSize: '12px', color: '#aaa', margin: '4px 0 0 0' }}>
