@@ -454,6 +454,9 @@ const BookingForm = () => {
                     adults: formData.adults,
                     children: formData.children,
                     room_type: formData.room_type,
+                    room_label: formData.room_type === 'full' ? 'full villa'
+                        : formData.room_type === 'partial' ? 'half villa'
+                        : 'Remaining Room',
                     guests_count,
                     check_in_date: format(checkIn, 'yyyy-MM-dd'),
                     check_out_date: format(checkOut, 'yyyy-MM-dd'),
@@ -483,6 +486,9 @@ const BookingForm = () => {
             adults: formData.adults,
             children: formData.children,
             room_type: formData.room_type,
+            room_label: formData.room_type === 'full' ? 'Full Villa'
+                : formData.room_type === 'partial' ? 'Excluding One Room'
+                : 'Remaining Room',
             guests_count,
             check_in_date:  format(checkIn,  'yyyy-MM-dd'),
             check_out_date: format(checkOut, 'yyyy-MM-dd'),
