@@ -228,7 +228,6 @@ const BookingForm = () => {
                 
                 const raw = await response.json();
                 const data = Array.isArray(raw) ? raw[0] : raw;
-                console.log(data);
                 
                 if (!data || !data['Booking Id']) return;
 
