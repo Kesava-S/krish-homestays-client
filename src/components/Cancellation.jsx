@@ -65,13 +65,19 @@ export default function Cancellation() {
             const res = await fetch(
                 `${import.meta.env.VITE_N8N_URL}/booking-cancellation?booking_id=${bookingId.trim().toUpperCase()}`
             );
-            const raw = await res.json();
-            const data = Array.isArray(raw) ? raw[0] : raw;
+            const result = await res.json();
 
-            if (!data || !data['Booking_id']) {
-                setError('Booking ID not found. Please check and try again.');
+            if (!result.success) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Not Found',
+                    text: result.error || 'Booking ID not found. Please check and try again.',
+                    confirmButtonColor: '#3399cc',
+                });
                 return;
             }
+
+            const data = result.data;
 
             // ✅ Check if already cancelled
             if (data['Status']?.toLowerCase() === 'cancelled') {
@@ -91,7 +97,7 @@ export default function Cancellation() {
             }
 
             const booking = {
-                booking_id: data['Booking_id'],
+                booking_id: data['Booking Id'],
                 guest_name: data['Guest Name'],
                 email: data['Email'],
                 phone: data['Phone Number'],
