@@ -87,6 +87,17 @@ const legacyCountToFields = (count) => {
     return             { adults: 7, children: 0, room_type: 'full' };
 };
 
+// Booking type helpers — check booking_type field (from Sheets) first, fall back to guests_count
+const isFullBooking     = (r) => r.booking_type
+    ? r.booking_type.toLowerCase() === 'full villa'
+    : (r.guests_count >= 6 || !r.guests_count);
+const isPartialBooking  = (r) => r.booking_type
+    ? r.booking_type.toLowerCase() === 'half villa'
+    : r.guests_count === 5;
+const isRemainingBooking = (r) => r.booking_type
+    ? r.booking_type.toLowerCase() === 'remaining'
+    : r.guests_count === 4;
+
 // ── CheckoutForm ───────────────────────────────────────────────────
 const CheckoutForm = ({ bookingData, onPaymentSuccess, onCancel }) => {
     const [processing, setProcessing] = useState(false);
@@ -244,9 +255,11 @@ const BookingForm = () => {
                 const adults   = parseInt(data['Guest Adults'])   || 3;
                 const children = parseInt(data['Guest Children']) || 0;
                 const typeRaw  = (data['Booking Type'] || '').toLowerCase();
-                const room_type = typeRaw.includes('half villa')
-                    ? 'half villa'
-                    : 'full villa';
+                const room_type = typeRaw.includes('half villa') || typeRaw.includes('partial')
+                    ? 'partial'
+                    : typeRaw.includes('remaining')
+                    ? 'remaining'
+                    : 'full';
 
                 setFormData({
                     guest_name:   data['Guest Name']    || '',
@@ -281,21 +294,21 @@ const BookingForm = () => {
         });
     };
 
-    // Fully closed: full booking (count ≥ 6), admin-blocked, or both rooms taken (partial+remaining)
+    // Fully closed: full villa booking, admin-blocked, or both rooms taken (partial+remaining)
     const isDateFullyBooked = (date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
         if (calendarData.rules[dateStr]?.status === 'blocked') return true;
         const on = rangesOnDate(date);
-        const hasFull      = on.some(r => r.guests_count >= 6 || !r.guests_count);
-        const hasPartial   = on.some(r => r.guests_count === 5);
-        const hasRemaining = on.some(r => r.guests_count === 4);
+        const hasFull      = on.some(isFullBooking);
+        const hasPartial   = on.some(isPartialBooking);
+        const hasRemaining = on.some(isRemainingBooking);
         return hasFull || (hasPartial && hasRemaining);
     };
 
-    // Partially available: a partial (count=5) booking exists but the remaining room is still free
+    // Partially available: a half villa booking exists but the remaining room is still free
     const isDatePartiallyBooked = (date) => {
         const on = rangesOnDate(date);
-        return on.some(r => r.guests_count === 5) && !on.some(r => r.guests_count === 4);
+        return on.some(isPartialBooking) && !on.some(isRemainingBooking);
     };
 
     // True if ANY date in range has a partial booking still available for the remaining room
@@ -320,11 +333,11 @@ const BookingForm = () => {
         if (on.length === 0) return false;
 
         if (rt === 'remaining') {
-            // Remaining room is only available when there's a partial booking (count=5)
-            // and no prior remaining booking (count=4)
-            const hasPartial   = on.some(r => r.guests_count === 5);
-            const hasRemaining = on.some(r => r.guests_count === 4);
-            const hasFull      = on.some(r => r.guests_count >= 6 || !r.guests_count);
+            // Remaining room is only available when there's a half villa booking
+            // and no prior remaining booking
+            const hasPartial   = on.some(isPartialBooking);
+            const hasRemaining = on.some(isRemainingBooking);
+            const hasFull      = on.some(isFullBooking);
             return hasFull || hasRemaining || !hasPartial;
         }
 
@@ -476,9 +489,12 @@ const BookingForm = () => {
                     adults: formData.adults,
                     children: formData.children,
                     room_type: formData.room_type,
-                    room_label: formData.room_type === 'full' ? 'full villa'
-                        : formData.room_type === 'partial' ? 'half villa'
-                        : 'Remaining Room',
+                    booking_type: formData.room_type === 'partial' ? 'half villa'
+                        : formData.room_type === 'remaining' ? 'remaining'
+                        : 'full villa',
+                    room_label: formData.room_type === 'partial' ? 'Half Villa'
+                        : formData.room_type === 'remaining' ? 'Remaining Room'
+                        : 'Full Villa',
                     guests_count,
                     check_in_date: format(checkIn, 'yyyy-MM-dd'),
                     check_out_date: format(checkOut, 'yyyy-MM-dd'),
@@ -508,9 +524,12 @@ const BookingForm = () => {
             adults: formData.adults,
             children: formData.children,
             room_type: formData.room_type,
-            room_label: formData.room_type === 'full' ? 'Full Villa'
-                : formData.room_type === 'partial' ? 'Excluding One Room'
-                : 'Remaining Room',
+            booking_type: formData.room_type === 'partial' ? 'half villa'
+                : formData.room_type === 'remaining' ? 'remaining'
+                : 'full villa',
+            room_label: formData.room_type === 'partial' ? 'Half Villa'
+                : formData.room_type === 'remaining' ? 'Remaining Room'
+                : 'Full Villa',
             guests_count,
             check_in_date:  format(checkIn,  'yyyy-MM-dd'),
             check_out_date: format(checkOut, 'yyyy-MM-dd'),
@@ -648,8 +667,8 @@ const BookingForm = () => {
                         disabled={!datesSelected}
                         style={{ opacity: datesSelected ? 1 : 0.5 }}
                     >
-                        <option value="half villa">Excluding one room — ₹5,000/night</option>
-                        <option value="full villa">Full villa — ₹7,000/night</option>
+                        <option value="partial">Excluding one room — ₹5,000/night</option>
+                        <option value="full">Full villa — ₹7,000/night</option>
                     </select>
                     {!datesSelected && (
                         <p style={{ fontSize: '12px', color: '#aaa', margin: '4px 0 0 0' }}>

@@ -63,7 +63,7 @@ export default function Cancellation() {
 
         try {
             const res = await fetch(
-                `${import.meta.env.VITE_N8N_URL}/booking-enquiry?booking_id=${bookingId.trim().toUpperCase()}`
+                `${import.meta.env.VITE_N8N_URL}/booking-cancellation?booking_id=${bookingId.trim().toUpperCase()}`
             );
             const raw = await res.json();
             const data = Array.isArray(raw) ? raw[0] : raw;
