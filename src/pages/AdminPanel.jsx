@@ -1,6 +1,7 @@
 import React, { useState, useContext } from 'react';
 import AdminDashboard from './AdminDashboard';
 import BookingList from './BookingList';
+import InvoiceGenerator from './InvoiceGenerator';
 import { authContext } from '../App';
 import { useNavigate } from 'react-router-dom';
 
@@ -41,12 +42,20 @@ export default function AdminPanel() {
         >
           Bookings
         </div>
+
+        <div
+          style={{ marginTop: '10px', cursor: 'pointer', color: activePage === 'invoice' ? '#38bdf8' : '#fff' }}
+          onClick={() => setActivePage('invoice')}
+        >
+          Invoice
+        </div>
       </div>
 
       {/* Content */}
       <div style={{ flex: 1, padding: '30px' }}>
         {activePage === 'dashboard' && <AdminDashboard />}
         {activePage === 'bookings' && <BookingList />}
+        {activePage === 'invoice' && <InvoiceGenerator />}
       </div>
 
     </div>

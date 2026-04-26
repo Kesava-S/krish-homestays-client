@@ -8,87 +8,105 @@
   backdrop-filter: blur(3px);
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
+  padding: 30px 16px;
   z-index: 9999;
+  overflow-y: auto;
 }
 
 .modal-box {
   background: #fff;
-  padding: 25px 30px;
+  padding: 24px 28px;
   border-radius: 10px;
   width: 100%;
   max-width: 420px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-  animation: floatIn 0.25s ease-out;
+  animation: floatIn 0.22s ease-out;
+}
+
+.modal-wide {
+  max-width: 680px;
 }
 
 .modal-box h3 {
-  margin-bottom: 15px;
-  text-align: center;
+  margin-bottom: 16px;
+  font-size: 1.1rem;
+  color: #1e293b;
+}
+
+/* Section dividers inside modal */
+.modal-section-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #2C5F2D;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 5px;
+  margin: 18px 0 10px;
+}
+
+.modal-section-label:first-of-type {
+  margin-top: 0;
 }
 
 .modal-box label {
+  font-size: 0.78rem;
   font-weight: 600;
-  margin-top: 10px;
+  color: #475569;
+  margin-bottom: 3px;
   display: block;
 }
 
 .modal-box input,
-.modal-box select {
+.modal-box select,
+.modal-box textarea {
   width: 100%;
-  padding: 8px;
-  margin-top: 5px;
+  padding: 7px 9px;
+  margin-top: 2px;
   border-radius: 5px;
-  border: 1px solid #ccc;
+  border: 1px solid #cbd5e1;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.88rem;
+  box-sizing: border-box;
+}
+
+.modal-box input:disabled,
+.modal-box select:disabled,
+.modal-box textarea:disabled {
+  background: #f8fafc;
+  color: #64748b;
+  cursor: default;
 }
 
 .modal-actions {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
+  gap: 10px;
   margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.modal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px 16px;
+}
+
+.modal-grid div {
+  display: flex;
+  flex-direction: column;
 }
 
 /* Floating animation */
 @keyframes floatIn {
   from {
-    transform: translateY(-20px) scale(0.95);
+    transform: translateY(-16px) scale(0.97);
     opacity: 0;
   }
   to {
     transform: translateY(0) scale(1);
     opacity: 1;
   }
-}
-
-.modal-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px 16px;
-    margin-top: 10px;
-}
-
-.modal-grid div {
-    display: flex;
-    flex-direction: column;
-}
-
-.modal-grid label {
-    font-size: 0.85rem;
-    color: #475569;
-    margin-bottom: 3px;
-}
-
-.modal-grid input,
-.modal-grid select {
-    padding: 6px 8px;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
-    font-size: 0.9rem;
-}
-
-.review-box {
-    margin-top: 15px;
-    padding: 10px;
-    background: #f1f5f9;
-    border-radius: 6px;
 }

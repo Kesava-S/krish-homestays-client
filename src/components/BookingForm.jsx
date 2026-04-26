@@ -294,10 +294,11 @@ const BookingForm = () => {
         });
     };
 
-    // Fully closed: full villa booking, admin-blocked, or both rooms taken (partial+remaining)
+    // Fully closed: full villa booking, admin-blocked, admin-booked, or both rooms taken (partial+remaining)
     const isDateFullyBooked = (date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
-        if (calendarData.rules[dateStr]?.status === 'blocked') return true;
+        const ruleStatus = calendarData.rules[dateStr]?.status;
+        if (ruleStatus === 'blocked' || ruleStatus === 'booked') return true;
         const on = rangesOnDate(date);
         const hasFull      = on.some(isFullBooking);
         const hasPartial   = on.some(isPartialBooking);
@@ -327,7 +328,8 @@ const BookingForm = () => {
     const isDateUnavailable = (date, roomTypeOverride) => {
         const rt = roomTypeOverride !== undefined ? roomTypeOverride : formData.room_type;
         const dateStr = format(date, 'yyyy-MM-dd');
-        if (calendarData.rules[dateStr]?.status === 'blocked') return true;
+        const ruleStatus = calendarData.rules[dateStr]?.status;
+        if (ruleStatus === 'blocked' || ruleStatus === 'booked') return true;
 
         const on = rangesOnDate(date);
         if (on.length === 0) return false;

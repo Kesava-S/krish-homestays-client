@@ -2,93 +2,64 @@ import React, { useEffect, useState } from 'react';
 import './BookingList.css';
 import Swal from 'sweetalert2';
 
+const fmtDate = (d) => (d ? String(d).split('T')[0] : '—');
+
 export default function BookingList() {
 
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
-
     const [showModal, setShowModal] = useState(false);
     const [selectedRow, setSelectedRow] = useState(null);
     const [saving, setSaving] = useState(false);
+    const [modalMode, setModalMode] = useState('view');
+    const [currentPage, setCurrentPage] = useState(1);
 
-    const [modalMode, setModalMode] = useState('view'); // view | edit
+    const itemsPerPage = 8;
 
-    const [, setReviewData] = useState(null);
-
-
-    // 🔹 Fetch Bookings
     const fetchBookings = () => {
         setLoading(true);
         fetch(`${import.meta.env.VITE_N8N_URL}/krish_booking`)
             .then(res => res.json())
-            .then(data => {
-                setBookings(data || []);
-                setLoading(false);
-            })
-            .catch(err => {
-                console.error('Failed to fetch bookings', err);
-                setLoading(false);
-            });
+            .then(data => { setBookings(data || []); setLoading(false); })
+            .catch(err => { console.error('Failed to fetch bookings', err); setLoading(false); });
     };
 
-    useEffect(() => {
-        fetchBookings();
-    }, []);
+    useEffect(() => { fetchBookings(); }, []);
 
-    // 🔹 Open Modal
     const openModal = (row, mode = 'view') => {
         setSelectedRow(row);
         setModalMode(mode);
         setShowModal(true);
-        setReviewData(null);
-
-        if (row.review_status === 'yes') {
-            fetch(`${import.meta.env.VITE_N8N_URL}/homestay_review?booking_id=${row.booking_id}`)
-                .then(res => res.json())
-                .then(data => setReviewData(data))
-                .catch(err => console.error('Failed to fetch review', err));
-        }
     };
 
-
-    // 🔹 Close Modal
     const closeModal = () => {
         setShowModal(false);
         setSelectedRow(null);
-        setReviewData(null);
     };
 
-    // 🔹 Update Booking
     const handleUpdate = async () => {
         try {
             setSaving(true);
-
-            var newSelectedRow = {
+            const payload = {
                 ...selectedRow,
-                check_in_date: new Date(selectedRow.check_in_date).toISOString(),
-                check_out_date: new Date(selectedRow.check_out_date).toISOString()
-            }
-
+                'Check In Date': new Date(selectedRow['Check In Date']).toISOString(),
+                'Check Out Date': new Date(selectedRow['Check Out Date']).toISOString(),
+            };
             const res = await fetch(`${import.meta.env.VITE_N8N_URL}/update-booking`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newSelectedRow),
+                body: JSON.stringify(payload),
             });
-
             const data = await res.json();
-
             if (!data.success) throw new Error('Update failed');
-
             Swal.fire({
                 icon: 'success',
-                title: `Updated as status ${data.status != null ? data.status : "Pending | Cancelled"}`,
-                text: 'Booking updated successfully!',
-                confirmButtonColor: '#1f6f43'
+                title: 'Updated Successfully',
+                text: 'Booking updated!',
+                confirmButtonColor: '#1f6f43',
             });
-
             closeModal();
             fetchBookings();
-
         } catch (err) {
             console.error(err);
             alert('Failed to update booking');
@@ -97,84 +68,62 @@ export default function BookingList() {
         }
     };
 
-    const today = new Date().toISOString().split('T')[0];
+    const set = (field, value) => setSelectedRow(r => ({ ...r, [field]: value }));
 
-    const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 8;
+    const todayStr = new Date().toISOString().split('T')[0];
 
     const sortedBookings = [...bookings].sort(
-        (a, b) => new Date(b.check_in_date) - new Date(a.check_in_date)
+        (a, b) => new Date(b['Check In Date']) - new Date(a['Check In Date'])
     );
-
-    const indexOfLastItem = currentPage * itemsPerPage;
-    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-
-    const currentBookings = sortedBookings.slice(
-        indexOfFirstItem,
-        indexOfLastItem
-    );
-
     const totalPages = Math.ceil(sortedBookings.length / itemsPerPage);
-
-    const todayStr = new Date().toISOString().split("T")[0];
+    const currentBookings = sortedBookings.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
+    );
 
     return (
         <div>
             <h2>Bookings</h2>
 
-            {loading ? (
-                <p>Loading...</p>
-            ) : (
+            {loading ? <p>Loading...</p> : (
                 <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', fontSize: '0.88rem' }}>
                         <thead style={{ background: '#1e293b', color: '#fff' }}>
                             <tr>
                                 <th style={th}>Booking ID</th>
-                                <th style={th}>Name</th>
-                                <th style={th}>Email</th>
+                                <th style={th}>Date</th>
+                                <th style={th}>Guest Name</th>
                                 <th style={th}>Phone</th>
                                 <th style={th}>Check In</th>
                                 <th style={th}>Check Out</th>
-                                {/* <th style={th}>Guests</th> */}
-                                <th style={th}>Visit Status</th>
+                                <th style={th}>Type</th>
+                                <th style={th}>Guests</th>
+                                <th style={th}>Status</th>
                                 <th style={th}>Amount</th>
+                                <th style={th}>Source</th>
                                 <th style={th}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             {currentBookings.map((b, i) => (
-                                <tr key={i} style={{
-                                    backgroundColor:
-                                        String(b.check_in_date).split("T")[0] === todayStr
-                                            ? '#f0f0f0'   // light grey for today check-in
-                                            : 'transparent'
-                                }}>
-                                    <td style={td}>{b.booking_id}</td>
-                                    <td style={td}>{b.guest_name}</td>
-                                    <td style={td}>{b.email}</td>
-                                    <td style={td}>{b.phone}</td>
-                                    <td style={td}>{String(b.check_in_date).split("T")[0]}</td>
-                                    <td style={td}>{String(b.check_out_date).split("T")[0]}</td>
-                                    <td style={{ ...td, color: getStatusColor(b.visit_status) }}>
-                                        {b.visit_status}
+                                <tr key={i} style={{ backgroundColor: fmtDate(b['Check In Date']) === todayStr ? '#f0f9f4' : 'transparent' }}>
+                                    <td style={td}>{b['Booking Id'] || '—'}</td>
+                                    <td style={td}>{fmtDate(b['Date'])}</td>
+                                    <td style={td}>{b['Guest Name'] || '—'}</td>
+                                    <td style={td}>{b['Phone Number'] || '—'}</td>
+                                    <td style={td}>{fmtDate(b['Check In Date'])}</td>
+                                    <td style={td}>{fmtDate(b['Check Out Date'])}</td>
+                                    <td style={td}>{b['Booking Type'] || '—'}</td>
+                                    <td style={td}>{b['Guest Count'] || '—'}</td>
+                                    <td style={{ ...td, color: getStatusColor(b['Status']), fontWeight: '600' }}>
+                                        {b['Status'] || '—'}
                                     </td>
+                                    <td style={td}>{b['Total Amount'] ? `₹${b['Total Amount']}` : '—'}</td>
+                                    <td style={td}>{b['source'] || '—'}</td>
                                     <td style={td}>
-                                        {b.total_amount ? `₹${b.total_amount}` : '-'}
-                                    </td>
-                                    <td style={td}>
-                                        <button
-                                            className="btn btn-sm btn-info"
-                                            onClick={() => openModal(b, 'view')}
-                                        >
-                                            View
-                                        </button>
-
-                                        {(b.visit_status === 'enquiry' || b.visit_status === 'pending' || b.visit_status === 'booked') && (
-                                            <button
-                                                className="btn btn-sm btn-primary"
-                                                style={{ marginLeft: '6px' }}
-                                                onClick={() => openModal(b, 'edit')}
-                                            >
+                                        <button className="btn btn-sm btn-info" onClick={() => openModal(b, 'view')}>View</button>
+                                        {canEdit(b['Status']) && (
+                                            <button className="btn btn-sm btn-primary" style={{ marginLeft: '6px' }} onClick={() => openModal(b, 'edit')}>
                                                 Update
                                             </button>
                                         )}
@@ -183,145 +132,138 @@ export default function BookingList() {
                             ))}
                         </tbody>
                     </table>
+
                     <div style={{ marginTop: '15px', textAlign: 'center' }}>
-                        <button
-                            disabled={currentPage === 1}
-                            onClick={() => setCurrentPage(p => p - 1)}
-                            className='btn btn-secondary'
-                        >
-                            Prev
-                        </button>
-
-                        <span style={{ margin: '0 10px' }}>
-                            Page {currentPage} of {totalPages}
-                        </span>
-
-                        <button
-                            disabled={currentPage === totalPages}
-                            onClick={() => setCurrentPage(p => p + 1)}
-                            className='btn btn-secondary'
-                        >
-                            Next
-                        </button>
+                        <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="btn btn-secondary">Prev</button>
+                        <span style={{ margin: '0 10px' }}>Page {currentPage} of {totalPages || 1}</span>
+                        <button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)} className="btn btn-secondary">Next</button>
                     </div>
-
                 </div>
             )}
 
-            {/* 🔹 MODAL */}
+            {/* ── MODAL ── */}
             {showModal && selectedRow && (
                 <div className="modal-overlay" onClick={closeModal}>
-                    <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-                        <h3>Booking Details</h3>
+                    <div className="modal-box modal-wide" onClick={e => e.stopPropagation()}>
+                        <h3>{modalMode === 'edit' ? 'Update Booking' : 'Booking Details'}</h3>
 
+                        {/* Guest Information */}
+                        <div className="modal-section-label">Guest Information</div>
+                        <div className="modal-grid">
+                            <ViewField label="Booking ID"   value={selectedRow['Booking Id']} />
+                            <ViewField label="Booking Date" value={fmtDate(selectedRow['Date'])} />
+                            <ViewField label="Guest Name"   value={selectedRow['Guest Name']} />
+                            <ViewField label="Email"        value={selectedRow['Email']} />
+                            <ViewField label="Phone Number" value={selectedRow['Phone Number']} />
+                            <div />
+                        </div>
+
+                        {/* Stay Details */}
+                        <div className="modal-section-label">Stay Details</div>
                         <div className="modal-grid">
                             <div>
-                                <label>Booking ID</label>
-                                <input type="text" value={selectedRow?.booking_id} disabled />
+                                <label>Check In Date</label>
+                                <input type="date" value={fmtDate(selectedRow['Check In Date'])} disabled={modalMode === 'view'}
+                                    onChange={e => set('Check In Date', e.target.value)} />
                             </div>
-
                             <div>
-                                <label>Name</label>
-                                <input type="text" value={selectedRow?.guest_name} disabled />
+                                <label>Check Out Date</label>
+                                <input type="date" value={fmtDate(selectedRow['Check Out Date'])} disabled={modalMode === 'view'}
+                                    onChange={e => set('Check Out Date', e.target.value)} />
                             </div>
-
+                            <ViewField label="Guest Count"    value={selectedRow['Guest Count']} />
+                            <ViewField label="Guest Adults"   value={selectedRow['Guest Adults']} />
+                            <ViewField label="Guest Children" value={selectedRow['Guest Children']} />
                             <div>
-                                <label>Email</label>
-                                <input type="text" value={selectedRow?.email} disabled />
-                            </div>
-
-                            <div>
-                                <label>Phone</label>
-                                <input type="text" value={selectedRow?.phone} disabled />
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                <div>
-                                    <label>Adults</label>
-                                    <input type="number" value={selectedRow?.adults ?? '—'} disabled />
-                                </div>
-                                <div>
-                                    <label>Children</label>
-                                    <input type="number" value={selectedRow?.children ?? '—'} disabled />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label>Check In</label>
-                                <input
-                                    type="date"
-                                    value={String(selectedRow?.check_in_date).split("T")[0] || ''}
-                                    min={today}
-                                    disabled={modalMode === 'view'}
-                                    onChange={(e) =>
-                                        setSelectedRow({ ...selectedRow, check_in_date: e.target.value })
-                                    }
-                                />
-                            </div>
-
-                            <div>
-                                <label>Check Out</label>
-                                <input
-                                    type="date"
-                                    value={String(selectedRow?.check_out_date).split("T")[0] || ''}
-                                    min={String(selectedRow?.check_in_date).split("T")[0] || today}
-                                    disabled={modalMode === 'view'}
-                                    onChange={(e) =>
-                                        setSelectedRow({ ...selectedRow, check_out_date: e.target.value })
-                                    }
-                                />
-                            </div>
-
-                            <div>
-                                <label>Total Amount</label>
-                                <input
-                                    type="number"
-                                    value={selectedRow.total_amount || ''}
-                                    disabled={modalMode === 'view'}
-                                    onChange={(e) =>
-                                        setSelectedRow({ ...selectedRow, total_amount: e.target.value })
-                                    }
-                                />
-                            </div>
-
-                            <div>
-                                <label>Visit Status</label>
-                                <select
-                                    value={selectedRow.visit_status || 'enquiry'}
-                                    disabled={modalMode === 'view'}
-                                    onChange={(e) =>
-                                        setSelectedRow({ ...selectedRow, visit_status: e.target.value })
-                                    }
-                                >
-                                    <option value="enquiry">Enquiry</option>
-                                    <option value="visited">Visited</option>
-                                    <option value="pending">Pending</option>
-                                    <option value="booked">Booked</option>
-                                    <option value="cancelled">Cancelled</option>
+                                <label>Booking Type</label>
+                                <select value={selectedRow['Booking Type'] || ''} disabled={modalMode === 'view'}
+                                    onChange={e => set('Booking Type', e.target.value)}>
+                                    <option value="">— Select —</option>
+                                    <option value="full villa">Full Villa</option>
+                                    <option value="half villa">Half Villa</option>
+                                    <option value="remaining">Remaining Room</option>
                                 </select>
-                            </div>
-
-
-                            <div>
-                                <label>Payment ID</label>
-                                <input
-                                    type="text"
-                                    value={selectedRow.payment_id || ''}
-                                    disabled={modalMode === 'view'}
-                                    onChange={(e) =>
-                                        setSelectedRow({ ...selectedRow, payment_id: e.target.value })
-                                    }
-                                />
                             </div>
                         </div>
 
+                        {/* Payment */}
+                        <div className="modal-section-label">Payment</div>
+                        <div className="modal-grid">
+                            <div>
+                                <label>Total Amount (₹)</label>
+                                <input type="number" value={selectedRow['Total Amount'] || ''} disabled={modalMode === 'view'}
+                                    onChange={e => set('Total Amount', e.target.value)} />
+                            </div>
+                            <div>
+                                <label>Payment ID</label>
+                                <input type="text" value={selectedRow['Payment ID'] || ''} disabled={modalMode === 'view'}
+                                    onChange={e => set('Payment ID', e.target.value)} />
+                            </div>
+                        </div>
+
+                        {/* Booking Source */}
+                        <div className="modal-section-label">Booking Source</div>
+                        <div className="modal-grid">
+                            <ViewField label="Source"      value={selectedRow['source']} />
+                            <ViewField label="Calendar ID" value={selectedRow['Calendar Id']} />
+                        </div>
+
+                        {/* Admin Status */}
+                        <div className="modal-section-label">Status & Flags</div>
+                        <div className="modal-grid">
+                            <div>
+                                <label>Status</label>
+                                <select value={selectedRow['Status'] || 'enquiry'} disabled={modalMode === 'view'}
+                                    onChange={e => set('Status', e.target.value)}>
+                                    <option value="enquiry">Enquiry</option>
+                                    <option value="pending">Pending</option>
+                                    <option value="booked">Booked</option>
+                                    <option value="visited">Visited</option>
+                                    <option value="cancelled">Cancelled</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Confirmation Sent</label>
+                                <select value={selectedRow['Confirmation Sent'] || 'no'} disabled={modalMode === 'view'}
+                                    onChange={e => set('Confirmation Sent', e.target.value)}>
+                                    <option value="no">No</option>
+                                    <option value="yes">Yes</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Remainder Sent</label>
+                                <select value={selectedRow['Remainder Sent'] || 'no'} disabled={modalMode === 'view'}
+                                    onChange={e => set('Remainder Sent', e.target.value)}>
+                                    <option value="no">No</option>
+                                    <option value="yes">Yes</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Review Requested</label>
+                                <select value={selectedRow['Review Requested'] || 'no'} disabled={modalMode === 'view'}
+                                    onChange={e => set('Review Requested', e.target.value)}>
+                                    <option value="no">No</option>
+                                    <option value="yes">Yes</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Notes */}
+                        <div className="modal-section-label">Notes</div>
+                        <textarea
+                            rows={3}
+                            value={selectedRow['Notes'] || ''}
+                            disabled={modalMode === 'view'}
+                            onChange={e => set('Notes', e.target.value)}
+                            style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontFamily: 'Outfit, sans-serif', fontSize: '0.88rem', resize: 'vertical', boxSizing: 'border-box' }}
+                        />
+
                         <div className="modal-actions">
                             {modalMode === 'edit' && (
-                                <button className="btn btn-success" disabled={saving} onClick={handleUpdate} style={{ backgroundColor: '#84934A' }}>
-                                    {saving ? 'Saving...' : 'Save'}
+                                <button className="btn btn-success" disabled={saving} onClick={handleUpdate} style={{ backgroundColor: '#2C5F2D' }}>
+                                    {saving ? 'Saving...' : 'Save Changes'}
                                 </button>
                             )}
-
                             <button className="btn btn-secondary" onClick={closeModal} style={{ backgroundColor: '#A8BBA3' }}>
                                 Close
                             </button>
@@ -329,18 +271,27 @@ export default function BookingList() {
                     </div>
                 </div>
             )}
-
         </div>
     );
 }
 
-/* Styles */
-const th = { padding: '10px', border: '1px solid #ddd' };
-const td = { padding: '10px', border: '1px solid #ddd', textAlign: 'center' };
+function ViewField({ label, value }) {
+    return (
+        <div>
+            <label>{label}</label>
+            <input type="text" value={value || '—'} disabled />
+        </div>
+    );
+}
+
+const th = { padding: '10px 12px', border: '1px solid #2d3d55', textAlign: 'left', whiteSpace: 'nowrap' };
+const td = { padding: '9px 12px', border: '1px solid #e2e8f0', whiteSpace: 'nowrap' };
+
+const canEdit = (status) => ['enquiry', 'pending', 'booked'].includes(status);
 
 const getStatusColor = (status) => {
-    if (status === 'confirmed' || status === 'booked') return 'green';
-    if (status === 'pending' || status === 'enquiry') return 'orange';
-    if (status === 'failed' || status === 'cancelled') return 'red';
-    return '#333';
+    if (status === 'booked' || status === 'visited') return '#16a34a';
+    if (status === 'pending' || status === 'enquiry') return '#d97706';
+    if (status === 'cancelled') return '#dc2626';
+    return '#334155';
 };

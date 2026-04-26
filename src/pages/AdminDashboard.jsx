@@ -83,11 +83,9 @@ const AdminDashboard = () => {
         const dateStr = format(date, 'yyyy-MM-dd');
         const rule = calendarData.rules[dateStr];
 
-        // Check if booked
         const isBooked = calendarData.bookedRanges.some(range => {
             const start = new Date(range.start);
             const end = new Date(range.end);
-            // Reset times
             start.setHours(0, 0, 0, 0);
             end.setHours(0, 0, 0, 0);
             const d = new Date(date);
@@ -95,18 +93,10 @@ const AdminDashboard = () => {
             return d >= start && d < end;
         });
 
-        if (isBooked) return <div style={{ fontSize: '10px', color: 'red' }}>Booked</div>;
-
-        if (rule) {
-            return (
-                <div style={{ fontSize: '10px', color: rule.status === 'blocked' ? 'gray' : 'green' }}>
-                    {rule.status === 'blocked' ? 'Blocked' : `₹${rule.price}`}
-                </div>
-            );
-        }
-
+        if (isBooked || rule?.status === 'booked') return <div style={{ fontSize: '10px', color: '#dc2626' }}>Booked</div>;
+        if (rule?.status === 'blocked') return <div style={{ fontSize: '10px', color: '#6b7280' }}>Blocked</div>;
+        if (rule) return <div style={{ fontSize: '10px', color: '#16a34a' }}>₹{rule.price}</div>;
         return <div style={{ fontSize: '10px', color: '#888' }}>₹7000</div>;
-        // return <div style={{ fontSize: '10px', color: '#888' }}>₹1</div>;
     };
 
     const handleLogout = () => {
@@ -155,7 +145,8 @@ const AdminDashboard = () => {
                                     <label>Status</label>
                                     <select value={status} onChange={e => setStatus(e.target.value)}>
                                         <option value="available">Available</option>
-                                        <option value="blocked">Blocked (Maintenance/Personal)</option>
+                                        <option value="blocked">Blocked (Maintenance / Personal)</option>
+                                        <option value="booked">Booked (Manual)</option>
                                     </select>
                                 </div>
 
