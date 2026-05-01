@@ -18,7 +18,7 @@ export default function BookingList() {
 
     const fetchBookings = () => {
         setLoading(true);
-        fetch(`${import.meta.env.VITE_N8N_URL}/krish_booking`)
+        fetch(`${import.meta.env.VITE_N8N_URL}/fetch-all-bookings`)
             .then(res => res.json())
             .then(data => { setBookings(data || []); setLoading(false); })
             .catch(err => { console.error('Failed to fetch bookings', err); setLoading(false); });
