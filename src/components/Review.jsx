@@ -11,6 +11,7 @@ export default function Review() {
 
     const bookingId = useParams('booking_id');
 
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
@@ -34,6 +35,7 @@ export default function Review() {
             return;
         }
 
+        setLoading(true);
         try {
             const res = await fetch(`${import.meta.env.VITE_N8N_URL}/review`, {
                 method: 'POST',
@@ -62,16 +64,17 @@ export default function Review() {
 
             // redirect to google review when rating is 4 or 5.
 
-            setFormData({ name: '', email: '', phone: '', experience: '', rating: 0 });
+            setFormData({ experience: '', rating: 0 });
 
         } catch (err) {
-            // ❌ Error Alert
             Swal.fire({
                 icon: 'error',
                 title: 'Submission Failed',
                 text: err.message || 'Something went wrong. Please try again later.',
                 confirmButtonColor: '#d33'
             });
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -119,8 +122,13 @@ export default function Review() {
                     {success && <div className="text-success" style={{ color: 'green' }}>{success}</div>}
                     <br />
                     <div className='w-100 text-center'>
-                        <button type="submit" className="btn btn-primary w-100">
-                            Submit Review
+                        <button type="submit" className="btn btn-primary w-100" disabled={loading}>
+                            {loading ? (
+                                <>
+                                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                                    Submitting...
+                                </>
+                            ) : 'Submit Review'}
                         </button>
                     </div>
                 </form>
