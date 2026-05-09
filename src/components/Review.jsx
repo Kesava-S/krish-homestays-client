@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
 
@@ -8,8 +8,6 @@ export default function Review() {
         experience: '',
         rating: 0
     });
-
-    const [customerData, setCustomerData] = useState()
 
     const bookingId = useParams('booking_id');
 
@@ -24,54 +22,15 @@ export default function Review() {
         setFormData({ ...formData, rating: value });
     };
 
-    useEffect(() => {
-        if (!bookingId) return; // 🔒 prevent empty call
-
-        const fetchCustomer = async () => {
-            try {
-                const res = await fetch(
-                    `${import.meta.env.VITE_N8N_URL}/bookById?booking_id=${bookingId.booking_id}`
-                );
-
-                if (!res.ok) throw new Error('Failed to fetch booking');
-
-                const data = await res.json();
-
-                setCustomerData(data[0]);
-
-            } catch (error) {
-                console.error('Error fetching customer:', error);
-            }
-        };
-
-        fetchCustomer();
-    }, [bookingId]); // 👈 dependency is IMPORTANT
-
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setSuccess('');
 
-        const name = customerData.guest_name;
-        const email = customerData.email;
-        const phone = customerData.phone;
-
         const { experience, rating } = formData;
 
-        // 🔹 Common Validation
-        if (!name || !email || !phone || !experience || rating === 0) {
-            setError('Please fill in all fields and provide a rating.');
-            return;
-        }
-
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            setError('Please enter a valid email address.');
-            return;
-        }
-
-        if (!/^(\+91)?[6-9]\d{9}$/.test(phone)) {
-            setError('Please enter a valid phone number.');
+        if (!experience || rating === 0) {
+            setError('Please share your experience and provide a rating.');
             return;
         }
 
@@ -80,7 +39,7 @@ export default function Review() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    bookingId,
+                    bookingId: bookingId.booking_id,
                     ...formData,
                     source: 'website',
                     timestamp: new Date().toISOString()
