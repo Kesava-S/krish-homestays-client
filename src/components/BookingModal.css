@@ -1,0 +1,219 @@
+/* ── Overlay ─────────────────────────────────────── */
+.bm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+    z-index: 9999;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 20px 16px;
+    overflow-y: auto;
+    animation: bm-fade 0.3s ease;
+}
+
+/* ── Modal card ──────────────────────────────────── */
+.bm-modal {
+    position: relative;
+    background: #fff;
+    border-radius: 20px;
+    width: 100%;
+    max-width: 980px;
+    box-shadow: 0 32px 80px rgba(0, 0, 0, 0.35);
+    overflow: hidden;
+    animation: bm-slide-up 0.4s cubic-bezier(0.34, 1.4, 0.64, 1);
+    margin: auto;
+}
+
+/* ── Close button ────────────────────────────────── */
+.bm-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 10;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: #fff;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.bm-close:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+
+/* ── Promotional header ──────────────────────────── */
+.bm-promo {
+    background: linear-gradient(135deg, #1e4620 0%, #2C5F2D 60%, #3a7a3c 100%);
+    padding: 36px 40px 32px;
+    color: #fff;
+    position: relative;
+    overflow: hidden;
+}
+
+.bm-promo::before {
+    content: '';
+    position: absolute;
+    top: -40px;
+    right: -40px;
+    width: 200px;
+    height: 200px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+}
+
+.bm-promo::after {
+    content: '';
+    position: absolute;
+    bottom: -60px;
+    right: 80px;
+    width: 140px;
+    height: 140px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 50%;
+}
+
+.bm-promo-left {
+    position: relative;
+    z-index: 1;
+    max-width: 700px;
+}
+
+.bm-badge {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50px;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 4px 14px;
+    margin-bottom: 12px;
+}
+
+.bm-promo h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.6rem, 3vw, 2.2rem);
+    color: #fff;
+    margin: 0 0 10px;
+    line-height: 1.2;
+}
+
+.bm-promo p {
+    font-size: 0.95rem;
+    opacity: 0.85;
+    margin: 0 0 20px;
+    max-width: 500px;
+    line-height: 1.6;
+}
+
+.bm-highlights {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin-bottom: 20px;
+}
+
+.bm-highlight-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    opacity: 0.9;
+}
+
+.bm-highlight-item span {
+    font-weight: 500;
+}
+
+.bm-price-tag {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 0.9rem;
+}
+
+.bm-price-tag strong {
+    font-size: 1.1rem;
+    color: #a8e6a3;
+}
+
+/* ── BookingForm override inside modal ───────────── */
+/* Strip the glass-card effect — we're already inside a modal card */
+.bm-form-wrapper {
+    padding: 8px 0 0;
+}
+
+.bm-form-wrapper .booking-container.glass-card {
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 28px 36px 20px;
+}
+
+/* Hide the "Book Your Stay" h1 — promo header already names it */
+.bm-form-wrapper .booking-container > h1 {
+    display: none;
+}
+
+/* ── Footer "Maybe Later" ────────────────────────── */
+.bm-footer {
+    text-align: center;
+    padding: 4px 20px 20px;
+}
+
+.bm-skip {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 0.82rem;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+    transition: color 0.2s;
+}
+
+.bm-skip:hover {
+    color: #666;
+}
+
+/* ── Animations ──────────────────────────────────── */
+@keyframes bm-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes bm-slide-up {
+    from { opacity: 0; transform: translateY(40px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
+/* ── Mobile ──────────────────────────────────────── */
+@media (max-width: 768px) {
+    .bm-overlay {
+        padding: 12px 8px;
+        align-items: flex-start;
+    }
+
+    .bm-modal {
+        border-radius: 14px;
+    }
+
+    .bm-promo {
+        padding: 28px 20px 24px;
+    }
+
+    .bm-form-wrapper .booking-container.glass-card {
+        padding: 20px 16px;
+    }
+}

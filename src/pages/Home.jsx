@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Phone, Mail, Wifi, Coffee, Shield, Wind, Camera, Instagram } from 'lucide-react';
 import BookingForm from '../components/BookingForm';
+import BookingModal from '../components/BookingModal';
 
 const VideoPlayer = ({ src }) => {
     const videoRef = React.useRef(null);
@@ -47,6 +48,8 @@ const VideoPlayer = ({ src }) => {
 const Home = () => {
     return (
         <div className="home">
+            <BookingModal />
+
             {/* Hero Section */}
             <section className="hero" style={{
                 backgroundImage: 'linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url(/assets/hero.png)',
