@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import './BookingList.css';
 import Swal from 'sweetalert2';
+import API_URL from '../config';
 
 const fmtDate = (d) => (d ? String(d).split('T')[0] : '—');
 
@@ -18,9 +19,12 @@ export default function BookingList() {
 
     const fetchBookings = () => {
         setLoading(true);
-        fetch(`${import.meta.env.VITE_N8N_URL}/fetch-all-bookings`)
-            .then(res => res.json())
-            .then(data => { setBookings(data || []); setLoading(false); })
+        fetch(`${API_URL}/api/admin/bookings`)
+            .then(res => {
+                if (!res.ok) throw new Error(`Server error ${res.status}`);
+                return res.json();
+            })
+            .then(data => { setBookings(Array.isArray(data) ? data : []); setLoading(false); })
             .catch(err => { console.error('Failed to fetch bookings', err); setLoading(false); });
     };
 
