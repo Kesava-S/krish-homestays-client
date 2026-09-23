@@ -63,7 +63,7 @@ export default function Cancellation() {
 
         try {
             const res = await fetch(
-                `${import.meta.env.VITE_N8N_URL}/booking-cancellation?booking_id=${bookingId.trim().toUpperCase()}`
+                `${import.meta.env.VITE_API_URL}/api/booking-cancellation?booking_id=${bookingId.trim().toUpperCase()}`
             );
             const result = await res.json();
 
@@ -169,7 +169,7 @@ export default function Cancellation() {
         setLoading(true);
 
         try {
-            const res = await fetch(`${import.meta.env.VITE_N8N_URL}/cancel-booking`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/cancel-booking`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

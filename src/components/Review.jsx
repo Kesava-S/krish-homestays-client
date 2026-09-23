@@ -37,7 +37,7 @@ export default function Review() {
 
         setLoading(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_N8N_URL}/review`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/review`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

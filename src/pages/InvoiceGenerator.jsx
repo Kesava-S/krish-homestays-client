@@ -153,7 +153,7 @@ export default function InvoiceGenerator() {
                 Fill in the booking details to generate and send a tax invoice.
             </p>
 
-            <div style={styles.card}>
+            <div className="invoice-card">
                 {/* ── Booking Details ── */}
                 <div style={styles.sectionHeader}>
                     <span style={styles.sectionDot} />
@@ -212,8 +212,7 @@ export default function InvoiceGenerator() {
                     <div style={{ ...styles.fieldWrap, gridColumn: '1 / -1' }}>
                         <label style={styles.label}>Payment Type *</label>
                         <div style={{ display: 'flex', gap: '0' }}>
-                            <label style={{
-                                ...styles.toggleOption,
+                            <label className="toggle-option" style={{
                                 background: form.payment_type === 'full' ? '#2C5F2D' : '#f8fafc',
                                 color: form.payment_type === 'full' ? '#fff' : '#475569',
                                 borderRadius: '6px 0 0 6px',
@@ -221,8 +220,7 @@ export default function InvoiceGenerator() {
                                 <input type="radio" name="payment_type" value="full" checked={form.payment_type === 'full'} onChange={handleChange} style={{ display: 'none' }} />
                                 Full Payment
                             </label>
-                            <label style={{
-                                ...styles.toggleOption,
+                            <label className="toggle-option" style={{
                                 background: form.payment_type === 'advance' ? '#d97706' : '#f8fafc',
                                 color: form.payment_type === 'advance' ? '#fff' : '#475569',
                                 borderRadius: '0 6px 6px 0',
@@ -259,8 +257,7 @@ export default function InvoiceGenerator() {
                     <div style={{ ...styles.fieldWrap, gridColumn: '1 / -1' }}>
                         <label style={styles.label}>Payment Method *</label>
                         <div style={{ display: 'flex', gap: '0' }}>
-                            <label style={{
-                                ...styles.toggleOption,
+                            <label className="toggle-option" style={{
                                 background: form.payment_method === 'cash' ? '#1e293b' : '#f8fafc',
                                 color: form.payment_method === 'cash' ? '#fff' : '#475569',
                                 borderRadius: '6px 0 0 6px',
@@ -268,8 +265,7 @@ export default function InvoiceGenerator() {
                                 <input type="radio" name="payment_method" value="cash" checked={form.payment_method === 'cash'} onChange={handleChange} style={{ display: 'none' }} />
                                 Cash
                             </label>
-                            <label style={{
-                                ...styles.toggleOption,
+                            <label className="toggle-option" style={{
                                 background: form.payment_method === 'upi' ? '#1e293b' : '#f8fafc',
                                 color: form.payment_method === 'upi' ? '#fff' : '#475569',
                                 borderRadius: '0 6px 6px 0',
@@ -359,7 +355,7 @@ const styles = {
     },
     grid: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(2, 1fr)',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
         gap: '14px 20px',
     },
     fieldWrap: {
@@ -380,11 +376,15 @@ const styles = {
         fontFamily: 'Outfit, sans-serif',
         outline: 'none',
         transition: 'border-color 0.2s',
+        width: '100%',
+        boxSizing: 'border-box'
     },
     actions: {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '15px',
         marginTop: '28px',
         paddingTop: '20px',
         borderTop: '1px solid #e2e8f0',
@@ -421,16 +421,6 @@ const styles = {
         fontSize: '0.9rem',
         cursor: 'pointer',
         fontFamily: 'Outfit, sans-serif',
-    },
-    toggleOption: {
-        padding: '9px 22px',
-        border: '1px solid #cbd5e1',
-        fontWeight: '600',
-        fontSize: '0.88rem',
-        cursor: 'pointer',
-        fontFamily: 'Outfit, sans-serif',
-        transition: 'background 0.15s, color 0.15s',
-        userSelect: 'none',
     },
     btnRegenerate: {
         padding: '0 12px',

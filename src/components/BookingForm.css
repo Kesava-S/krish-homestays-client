@@ -57,7 +57,7 @@
 }
 
 .payment-details p {
-    font-size: 30px;
+    font-size: clamp(24px, 6vw, 30px);
 }
 
 .phone-input-group {
@@ -80,7 +80,7 @@
     margin-bottom: 20px;
 }
 
-.overlay {
+.krish-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -125,5 +125,70 @@
 
     .booking-container {
         padding: 20px;
+        margin-left: -5px;
+        margin-right: -5px;
+    }
+    
+    .custom-calendar {
+        padding: 5px;
+    }
+    
+    .react-calendar__tile {
+        padding: 8px 0 !important;
+        font-size: 0.8rem;
+    }
+    
+    .react-calendar__navigation button {
+        font-size: clamp(12px, 4vw, 16px);
+        min-width: 30px;
+        padding: 5px;
+    }
+}
+
+@media (max-width: 480px) {
+    .calendar-section {
+        width: 100%;
+        padding-bottom: 10px;
+    }
+    
+    .booking-container {
+        padding: 15px 5px; /* Maximize calendar width */
+    }
+    
+    .react-calendar__tile {
+        padding: 6px 0 !important;
+        font-size: 8px !important;
+        min-width: 0 !important; /* Fix Flexbox blowout */
+        overflow: hidden;
+    }
+    
+    .react-calendar__month-view__weekdays__weekday {
+        min-width: 0 !important;
+        overflow: hidden;
+    }
+    
+    .react-calendar__month-view__weekdays__weekday abbr {
+        font-size: 8px !important;
+        text-decoration: none;
+    }
+    
+    .custom-calendar {
+        width: 100%;
+        padding: 2px;
+        box-sizing: border-box;
+    }
+    
+    .react-calendar__navigation button {
+        font-size: clamp(10px, 3.5vw, 14px) !important;
+        min-width: 0 !important;
+        padding: 5px !important;
+    }
+    
+    /* Ensure the custom text inside tiles (like ₹7000) also scales */
+    .react-calendar__tile div {
+        font-size: 8px !important; 
+        white-space: nowrap;
+        text-overflow: clip;
+        overflow: hidden;
     }
 }

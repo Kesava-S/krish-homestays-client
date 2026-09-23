@@ -153,7 +153,7 @@ const CheckoutForm = ({ bookingData, onPaymentSuccess, onCancel }) => {
                             razorpay_payment_id: response.razorpay_payment_id,
                             razorpay_order_id: response.razorpay_order_id,
                             razorpay_signature: response.razorpay_signature,
-                            amount: data.order.amount,
+                            amount: data.order.amount / 100,
                             currency: "INR",
                             gateway: "razorpay"
                         });
@@ -184,14 +184,14 @@ const CheckoutForm = ({ bookingData, onPaymentSuccess, onCancel }) => {
             <div className='payment-details'>
                 <h3>Secure Payment</h3>
                 <b><p>Total : ₹{bookingData.total_amount}</p></b>
-                <p style={{ fontSize: '13px', color: '#888', marginTop: '4px' }}>
+                <p style={{ fontSize: '13px', color: '#888', marginTop: '4px', wordWrap: 'break-word', whiteSpace: 'normal', padding: '0 10px' }}>
                     {bookingData.adults} adults
                     {bookingData.children > 0 ? `, ${bookingData.children} children` : ''}
                     {' • '}{roomLabel}
                 </p>
             </div>
             {error && <div className="error-message">{error}</div>}
-            <div className="payment-actions">
+            <div className="payment-actions" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
                 <button onClick={onCancel} className="btn btn-secondary">Back</button>
                 <button onClick={handlePayment} disabled={processing} className="btn btn-primary">
                     {processing ? "Processing..." : `Pay ₹${bookingData.total_amount}`}
@@ -235,7 +235,7 @@ const BookingForm = () => {
         const fetchBooking = async () => {
             try {
                 const response = await fetch(
-                    `${import.meta.env.VITE_N8N_URL}/booking-enquiry?booking_id=${booking_id}`
+                    `${import.meta.env.VITE_API_URL}/api/booking-enquiry?booking_id=${booking_id}`
                 );
 
                 const data1 = await response.json();
@@ -480,7 +480,7 @@ const BookingForm = () => {
         const guests_count = formData.adults + formData.children;
 
         if (!booking_id) {
-            fetch(`${import.meta.env.VITE_N8N_URL}/registeration`, {
+            fetch(`${import.meta.env.VITE_API_URL}/api/registration`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -554,11 +554,11 @@ const BookingForm = () => {
         };
 
         try {
-            fetch(`${import.meta.env.VITE_N8N_URL}/registeration`, {
+            fetch(`${import.meta.env.VITE_API_URL}/api/registration`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(webhookPayload)
-            }).catch(err => console.error('n8n webhook failed', err));
+            }).catch(err => console.error('API webhook failed', err));
 
             if (status === 'failed') {
                 setPaymentStatus('failed');
@@ -623,7 +623,7 @@ const BookingForm = () => {
         const partial  = isDatePartiallyBooked(date);
         const customPrice = calendarData.rules[format(date, 'yyyy-MM-dd')]?.price;
         return (
-            <div style={{ fontSize: '10px', marginTop: '2px' }}>
+            <div style={{ marginTop: '2px' }}>
                 {partial
                     ? <span style={{ color: '#e67e22' }}>Partial</span>
                     : <span style={{ color: '#888' }}>₹{customPrice || ROOM_PRICE[formData.room_type] || 7000}</span>
@@ -698,7 +698,7 @@ const BookingForm = () => {
     return (
         <>
             {paymentStatus === 'verifying' && (
-                <div className="overlay">
+                <div className="krish-overlay">
                     <div className="loader-box">
                         <div className="spinner"></div>
                         <p>Verifying payment... Please wait</p>

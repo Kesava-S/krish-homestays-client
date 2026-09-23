@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
+import '../components/BookingForm.css';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import API_URL from '../config';
@@ -93,10 +94,10 @@ const AdminDashboard = () => {
             return d >= start && d < end;
         });
 
-        if (isBooked || rule?.status === 'booked') return <div style={{ fontSize: '10px', color: '#dc2626' }}>Booked</div>;
-        if (rule?.status === 'blocked') return <div style={{ fontSize: '10px', color: '#6b7280' }}>Blocked</div>;
-        if (rule) return <div style={{ fontSize: '10px', color: '#16a34a' }}>₹{rule.price}</div>;
-        return <div style={{ fontSize: '10px', color: '#888' }}>₹7000</div>;
+        if (isBooked || rule?.status === 'booked') return <div style={{ color: '#dc2626' }}>Booked</div>;
+        if (rule?.status === 'blocked') return <div style={{ color: '#6b7280' }}>Blocked</div>;
+        if (rule) return <div style={{ color: '#16a34a' }}>₹{rule.price}</div>;
+        return <div style={{ color: '#888' }}>₹7000</div>;
     };
 
     const handleLogout = () => {
@@ -113,8 +114,8 @@ const AdminDashboard = () => {
                     <button onClick={handleLogout} className="btn btn-secondary">Logout</button>
                 </div>
 
-                <div className="grid-2" style={{ gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
-                    <div>
+                <div className="grid-2">
+                    <div className="calendar-section">
                         <Calendar
                             selectRange={true}
                             onChange={setDateRange}

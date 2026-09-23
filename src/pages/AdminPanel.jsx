@@ -4,55 +4,62 @@ import BookingList from './BookingList';
 import InvoiceGenerator from './InvoiceGenerator';
 import { authContext } from '../App';
 import { useNavigate } from 'react-router-dom';
+import { Menu, X } from 'lucide-react';
+import './AdminPanel.css'; 
 
 export default function AdminPanel() {
 
   const { token, setToken } = useContext(authContext);
-
   const [activePage, setActivePage] = useState('dashboard');
-
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
   if (!token) {
     navigate("/admin")
   }
 
+  const handleNavClick = (page) => {
+      setActivePage(page);
+      setIsMobileMenuOpen(false); // Close menu on click in mobile
+  };
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#f4f6f8' }}>
-
+    <div className="admin-layout">
       {/* Sidebar */}
-      <div style={{
-        width: '220px',
-        background: '#1e293b',
-        color: '#fff',
-        padding: '20px'
-      }}>
-        <h3 style={{ color: '#fff' }}>Krish Admin</h3>
-
-        <div
-          style={{ marginTop: '20px', cursor: 'pointer', color: activePage === 'dashboard' ? '#38bdf8' : '#fff' }}
-          onClick={() => setActivePage('dashboard')}
-        >
-          Dashboard
+      <div className="admin-sidebar">
+        <div className="sidebar-header">
+            <h3>Krish Admin</h3>
+            <button className="hamburger-btn" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+                {isMobileMenuOpen ? <X size={24} color="#fff" /> : <Menu size={24} color="#fff" />}
+            </button>
         </div>
 
-        <div
-          style={{ marginTop: '10px', cursor: 'pointer', color: activePage === 'bookings' ? '#38bdf8' : '#fff' }}
-          onClick={() => setActivePage('bookings')}
-        >
-          Bookings
-        </div>
+        <div className={`sidebar-links ${isMobileMenuOpen ? 'open' : ''}`}>
+            <div
+              className={`sidebar-item ${activePage === 'dashboard' ? 'active' : ''}`}
+              onClick={() => handleNavClick('dashboard')}
+            >
+              Dashboard
+            </div>
 
-        <div
-          style={{ marginTop: '10px', cursor: 'pointer', color: activePage === 'invoice' ? '#38bdf8' : '#fff' }}
-          onClick={() => setActivePage('invoice')}
-        >
-          Invoice
+            <div
+              className={`sidebar-item ${activePage === 'bookings' ? 'active' : ''}`}
+              onClick={() => handleNavClick('bookings')}
+            >
+              Bookings
+            </div>
+
+            <div
+              className={`sidebar-item ${activePage === 'invoice' ? 'active' : ''}`}
+              onClick={() => handleNavClick('invoice')}
+            >
+              Invoice
+            </div>
         </div>
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, padding: '30px' }}>
+      <div className="admin-content">
         {activePage === 'dashboard' && <AdminDashboard />}
         {activePage === 'bookings' && <BookingList />}
         {activePage === 'invoice' && <InvoiceGenerator />}

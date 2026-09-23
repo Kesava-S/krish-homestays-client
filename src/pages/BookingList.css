@@ -99,7 +99,6 @@
   flex-direction: column;
 }
 
-/* Floating animation */
 @keyframes floatIn {
   from {
     transform: translateY(-16px) scale(0.97);
@@ -108,5 +107,11 @@
   to {
     transform: translateY(0) scale(1);
     opacity: 1;
+  }
+}
+
+@media (max-width: 600px) {
+  .modal-grid {
+    grid-template-columns: 1fr;
   }
 }
