@@ -49,13 +49,52 @@ export default function BookingList() {
                 'Check In Date': new Date(selectedRow['Check In Date']).toISOString(),
                 'Check Out Date': new Date(selectedRow['Check Out Date']).toISOString(),
             };
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/update-booking`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-            const data = await res.json();
-            if (!data.success) throw new Error('Update failed');
+            let updateSuccess = false;
+            if (import.meta.env.VITE_N8N_URL) {
+                try {
+                    const res = await fetch(`${import.meta.env.VITE_N8N_URL}/update-booking`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+                    const data = await res.json();
+                    if (data.success) updateSuccess = true;
+                } catch (e) {
+                    console.warn('n8n update failed, falling back to server API:', e);
+                }
+            }
+
+            if (!updateSuccess) {
+                const bookingId = payload['Booking Id'] || payload['Booking ID'] || payload.booking_id;
+                const updatePayload = {
+                    booking_id: bookingId,
+                    updates: {
+                        status: payload['Status'],
+                        notes: payload['Notes'],
+                        check_in_date: payload['Check In Date'],
+                        check_out_date: payload['Check Out Date'],
+                        guest_name: payload['Guest Name'],
+                        phone: payload['Phone Number'],
+                        email: payload['Email'],
+                        total_amount: payload['Total Amount']
+                    },
+                    ...payload
+                };
+                let res = await fetch(`${API_URL}/api/update-booking`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatePayload),
+                });
+                if (!res.ok) {
+                    res = await fetch(`${API_URL}/api/admin/update-booking`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updatePayload),
+                    });
+                }
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'Update failed');
+            }
             Swal.fire({
                 icon: 'success',
                 title: 'Updated Successfully',
