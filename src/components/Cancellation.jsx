@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Swal from 'sweetalert2';
+import API_URL from '../config';
 
 // ── Refund Calculator ──────────────────────────────────────────────
 const calculateRefund = (checkInDate, totalAmount) => {
@@ -62,16 +63,28 @@ export default function Cancellation() {
         setVerifying(true);
 
         try {
-            const res = await fetch(
-                `${import.meta.env.VITE_N8N_URL}/booking-cancellation?booking_id=${bookingId.trim().toUpperCase()}`
-            );
-            const result = await res.json();
+            let result = null;
+            if (import.meta.env.VITE_N8N_URL) {
+                try {
+                    const res = await fetch(
+                        `${import.meta.env.VITE_N8N_URL}/booking-cancellation?booking_id=${bookingId.trim().toUpperCase()}`
+                    );
+                    result = await res.json();
+                } catch (e) {
+                    console.warn('n8n verification unreachable, falling back to server API', e);
+                }
+            }
 
-            if (!result.success) {
+            if (!result || !result.success) {
+                const res = await fetch(`${API_URL}/api/bookings/${bookingId.trim().toUpperCase()}`);
+                result = await res.json();
+            }
+
+            if (!result || !result.success) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Not Found',
-                    text: result.error || 'Booking ID not found. Please check and try again.',
+                    text: result?.error || 'Booking ID not found. Please check and try again.',
                     confirmButtonColor: '#3399cc',
                 });
                 return;
@@ -169,30 +182,52 @@ export default function Cancellation() {
         setLoading(true);
 
         try {
-            const res = await fetch(`${import.meta.env.VITE_N8N_URL}/cancel-booking`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    booking_id: bookingInfo.booking_id,
-                    guest_name: bookingInfo.guest_name,
-                    email: bookingInfo.email,
-                    phone: bookingInfo.phone,
-                    check_in_date: bookingInfo.check_in_date,
-                    check_out_date: bookingInfo.check_out_date,
-                    total_amount: bookingInfo.total_amount,
-                    payment_id: bookingInfo.payment_id,
-                    refund_amount: refundInfo.refundAmount,
-                    refund_percent: refundInfo.refundPercent,
-                    refund_eligible: refundInfo.eligible,
-                    action: 'cancel',
-                    source: 'website',
-                    timestamp: new Date().toISOString()
-                })
-            });
+            let cancelSuccess = false;
+            let resData = null;
+            if (import.meta.env.VITE_N8N_URL) {
+                try {
+                    const res = await fetch(`${import.meta.env.VITE_N8N_URL}/cancel-booking`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            booking_id: bookingInfo.booking_id,
+                            guest_name: bookingInfo.guest_name,
+                            email: bookingInfo.email,
+                            phone: bookingInfo.phone,
+                            check_in_date: bookingInfo.check_in_date,
+                            check_out_date: bookingInfo.check_out_date,
+                            total_amount: bookingInfo.total_amount,
+                            payment_id: bookingInfo.payment_id,
+                            refund_amount: refundInfo.refundAmount,
+                            refund_percent: refundInfo.refundPercent,
+                            refund_eligible: refundInfo.eligible,
+                            action: 'cancel',
+                            source: 'website',
+                            timestamp: new Date().toISOString()
+                        })
+                    });
+                    resData = await res.json();
+                    if (res.ok && (resData.status === 'success' || resData.success)) {
+                        cancelSuccess = true;
+                    }
+                } catch (e) {
+                    console.warn('n8n cancel webhook unreachable, falling back to server API', e);
+                }
+            }
 
-            const data = await res.json();
+            if (!cancelSuccess) {
+                const res = await fetch(`${API_URL}/api/cancel-booking`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ booking_id: bookingInfo.booking_id })
+                });
+                resData = await res.json();
+                if (res.ok && resData.success) {
+                    cancelSuccess = true;
+                }
+            }
 
-            if (res.ok && data.status === 'success') {
+            if (cancelSuccess) {
                 Swal.fire({
                     title: '✅ Booking Cancelled',
                     html: `

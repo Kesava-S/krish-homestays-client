@@ -49,13 +49,30 @@ export default function BookingList() {
                 'Check In Date': new Date(selectedRow['Check In Date']).toISOString(),
                 'Check Out Date': new Date(selectedRow['Check Out Date']).toISOString(),
             };
-            const res = await fetch(`${import.meta.env.VITE_N8N_URL}/update-booking`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-            const data = await res.json();
-            if (!data.success) throw new Error('Update failed');
+            let updateSuccess = false;
+            if (import.meta.env.VITE_N8N_URL) {
+                try {
+                    const res = await fetch(`${import.meta.env.VITE_N8N_URL}/update-booking`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+                    const data = await res.json();
+                    if (data.success) updateSuccess = true;
+                } catch (e) {
+                    console.warn('n8n update failed, falling back to server API:', e);
+                }
+            }
+
+            if (!updateSuccess) {
+                const res = await fetch(`${API_URL}/api/admin/update-booking`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'Update failed');
+            }
             Swal.fire({
                 icon: 'success',
                 title: 'Updated Successfully',

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
+import API_URL from '../config';
 
 export default function Review() {
 
@@ -37,21 +38,38 @@ export default function Review() {
 
         setLoading(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_N8N_URL}/review`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    bookingId: bookingId.booking_id,
-                    ...formData,
-                    source: 'website',
-                    timestamp: new Date().toISOString()
-                })
-            });
+            let submitSuccess = false;
+            const reviewPayload = {
+                bookingId: bookingId.booking_id,
+                ...formData,
+                source: 'website',
+                timestamp: new Date().toISOString()
+            };
 
-            const data = await res.json();
+            if (import.meta.env.VITE_N8N_URL) {
+                try {
+                    const res = await fetch(`${import.meta.env.VITE_N8N_URL}/review`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(reviewPayload)
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) submitSuccess = true;
+                } catch (e) {
+                    console.warn('n8n review webhook unreachable, falling back to server API', e);
+                }
+            }
 
-            if (!res.ok || !data.success) {
-                throw new Error(data.message || 'Failed to submit review');
+            if (!submitSuccess) {
+                const res = await fetch(`${API_URL}/api/reviews`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(reviewPayload)
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    throw new Error(data.error || 'Failed to submit review');
+                }
             }
 
             // ✅ Success Alert

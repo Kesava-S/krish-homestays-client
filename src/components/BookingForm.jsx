@@ -204,6 +204,9 @@ const CheckoutForm = ({ bookingData, onPaymentSuccess, onCancel }) => {
 // ── BookingForm ────────────────────────────────────────────────────
 const BookingForm = () => {
     const [dateRange, setDateRange] = useState(null);
+
+    const checkInDate = Array.isArray(dateRange) ? dateRange[0] : (dateRange instanceof Date ? dateRange : null);
+    const checkOutDate = Array.isArray(dateRange) && dateRange[1] ? dateRange[1] : null;
     const [calendarData, setCalendarData] = useState({ bookedRanges: [], rules: {} });
     const [formData, setFormData] = useState({
         guest_name: '',
@@ -359,8 +362,8 @@ const BookingForm = () => {
     };
 
     // Derived — no state needed, recomputed on every relevant change
-    const dateConflict = !!(dateRange?.[0] && dateRange?.[1] &&
-        isRangeUnavailable(dateRange[0], dateRange[1], formData.room_type));
+    const dateConflict = !!(checkInDate && checkOutDate &&
+        isRangeUnavailable(checkInDate, checkOutDate, formData.room_type));
 
     // ─── Pricing ───────────────────────────────────────────────────
     const getPriceForDate = (date) => {
@@ -369,10 +372,10 @@ const BookingForm = () => {
     };
 
     const calculateTotal = () => {
-        if (!dateRange || !dateRange[0] || !dateRange[1]) return 0;
+        if (!checkInDate || !checkOutDate) return 0;
         let total = 0;
-        let current = new Date(dateRange[0]); current.setHours(0, 0, 0, 0);
-        const end = new Date(dateRange[1]); end.setHours(0, 0, 0, 0);
+        let current = new Date(checkInDate); current.setHours(0, 0, 0, 0);
+        const end = new Date(checkOutDate); end.setHours(0, 0, 0, 0);
         while (current < end) {
             total += getPriceForDate(current);
             current.setDate(current.getDate() + 1);
@@ -383,11 +386,72 @@ const BookingForm = () => {
     // ─── Validation ────────────────────────────────────────────────
     const isValidName  = (name)  => /^[A-Za-z\s]{3,}$/.test(name);
     const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    const isValidPhone = (phone) => /^\d{6,15}$/.test(phone.replace(/[\s\-()]/g, ''));
+
+    const getPhoneConfig = (countryCode) => {
+        switch (countryCode) {
+            case '+91':
+                return {
+                    maxLength: 10,
+                    placeholder: '98765 43210',
+                    validate: (digits) => {
+                        if (digits.length !== 10) return 'Indian phone number must be exactly 10 digits';
+                        if (!/^[6-9]\d{9}$/.test(digits)) return 'Indian mobile numbers must start with 6, 7, 8, or 9';
+                        return null;
+                    }
+                };
+            case '+1':
+                return {
+                    maxLength: 10,
+                    placeholder: '202 555 0123',
+                    validate: (digits) => {
+                        if (digits.length !== 10) return 'US/Canada phone number must be exactly 10 digits';
+                        if (!/^[2-9]\d{9}$/.test(digits)) return 'US/Canada phone numbers must start with a digit between 2 and 9';
+                        return null;
+                    }
+                };
+            case '+44':
+                return {
+                    maxLength: 11,
+                    placeholder: '7911 123456',
+                    validate: (digits) => {
+                        if (digits.length < 10 || digits.length > 11) return 'UK phone number must be 10 or 11 digits';
+                        return null;
+                    }
+                };
+            default:
+                return {
+                    maxLength: 15,
+                    placeholder: '98765 43210',
+                    validate: (digits) => {
+                        if (digits.length < 8 || digits.length > 15) return 'Please enter a valid phone number (8–15 digits)';
+                        return null;
+                    }
+                };
+        }
+    };
+
+    const handlePhoneChange = (e) => {
+        // Strip out all non-digit characters immediately
+        const digits = e.target.value.replace(/\D/g, '');
+        const config = getPhoneConfig(formData.country_code);
+        setFormData(prev => ({ ...prev, phone: digits.slice(0, config.maxLength) }));
+        if (error) setError('');
+    };
+
+    const handleCountryCodeChange = (e) => {
+        const newCode = e.target.value;
+        const config = getPhoneConfig(newCode);
+        setFormData(prev => ({
+            ...prev,
+            country_code: newCode,
+            phone: prev.phone.slice(0, config.maxLength)
+        }));
+        if (error) setError('');
+    };
 
     const generateBookingId = () => {
-        if (!dateRange || !dateRange[0]) return "KH-INVALID";
-        const d = new Date(dateRange[0]);
+        if (!checkInDate) return "KH-INVALID";
+        const d = new Date(checkInDate);
         const yyyyMMdd = d.toISOString().slice(0, 10).replace(/-/g, '');
         const unique = (Date.now().toString(36) + Math.random().toString(36).substr(2, 4)).toUpperCase();
         return `KH-${yyyyMMdd}-${unique.slice(-5)}`;
@@ -397,8 +461,10 @@ const BookingForm = () => {
     const handleDateChange = (range) => {
         setDateRange(range);
         setError('');
-        if (range && range[0] && range[1]) {
-            const hasPartial = doesRangeHavePartial(range[0], range[1]);
+        const cIn = Array.isArray(range) ? range[0] : (range instanceof Date ? range : null);
+        const cOut = Array.isArray(range) && range[1] ? range[1] : null;
+        if (cIn && cOut) {
+            const hasPartial = doesRangeHavePartial(cIn, cOut);
             const newRoomType = hasPartial ? 'remaining'
                 : (formData.room_type === 'remaining' ? 'full' : formData.room_type);
             setFormData(prev => ({ ...prev, room_type: newRoomType }));
@@ -411,22 +477,84 @@ const BookingForm = () => {
     };
 
     const handleAdultsChange = (e) => {
-        const val = Math.min(10, Math.max(3, parseInt(e.target.value) || 3));
+        const raw = e.target.value;
+        if (raw === '') {
+            setFormData(prev => ({ ...prev, adults: '' }));
+            return;
+        }
+
+        let num;
+        if (raw.length > 1 && raw !== '10') {
+            const lastDigit = parseInt(raw.slice(-1), 10);
+            num = isNaN(lastDigit) ? 3 : lastDigit;
+        } else {
+            num = parseInt(raw, 10);
+        }
+
+        const max = getMaxAdults(Number(formData.children) || 0);
+        const val = Math.min(max, Math.max(1, isNaN(num) ? 3 : num));
+
         setFormData(prev => {
-            const clampedChildren = Math.min(prev.children, getMaxChildren(val));
+            const currentChildren = Number(prev.children) || 0;
+            const clampedChildren = Math.min(currentChildren, getMaxChildren(val));
             const newRoomType = !canSelectPartial(val, clampedChildren) && prev.room_type === 'partial'
                 ? 'full' : prev.room_type;
             return { ...prev, adults: val, children: clampedChildren, room_type: newRoomType };
         });
     };
 
-    const handleChildrenChange = (e) => {
-        const val = Math.min(7, Math.max(0, parseInt(e.target.value) || 0));
+    const handleAdultsBlur = () => {
+        const val = parseInt(formData.adults, 10);
+        const max = getMaxAdults(Number(formData.children) || 0);
+        const safeVal = isNaN(val) || val < 3 ? 3 : Math.min(max, val);
+
         setFormData(prev => {
-            const clampedAdults = Math.min(prev.adults, getMaxAdults(val));
+            const currentChildren = Number(prev.children) || 0;
+            const clampedChildren = Math.min(currentChildren, getMaxChildren(safeVal));
+            const newRoomType = !canSelectPartial(safeVal, clampedChildren) && prev.room_type === 'partial'
+                ? 'full' : prev.room_type;
+            return { ...prev, adults: safeVal, children: clampedChildren, room_type: newRoomType };
+        });
+    };
+
+    const handleChildrenChange = (e) => {
+        const raw = e.target.value;
+        if (raw === '') {
+            setFormData(prev => ({ ...prev, children: '' }));
+            return;
+        }
+
+        let num;
+        if (raw.length > 1) {
+            const lastDigit = parseInt(raw.slice(-1), 10);
+            num = isNaN(lastDigit) ? 0 : lastDigit;
+        } else {
+            num = parseInt(raw, 10);
+        }
+
+        const currentAdults = Number(formData.adults) || 3;
+        const max = getMaxChildren(currentAdults);
+        const val = Math.min(max, Math.max(0, isNaN(num) ? 0 : num));
+
+        setFormData(prev => {
+            const clampedAdults = Math.min(Number(prev.adults) || 3, getMaxAdults(val));
             const newRoomType = !canSelectPartial(clampedAdults, val) && prev.room_type === 'partial'
                 ? 'full' : prev.room_type;
             return { ...prev, children: val, adults: clampedAdults, room_type: newRoomType };
+        });
+    };
+
+    const handleChildrenBlur = () => {
+        const val = parseInt(formData.children, 10);
+        const currentAdults = Number(formData.adults) || 3;
+        const max = getMaxChildren(currentAdults);
+        const safeVal = isNaN(val) || val < 0 ? 0 : Math.min(max, val);
+
+        setFormData(prev => {
+            const clampedAdults = Math.min(Number(prev.adults) || 3, getMaxAdults(safeVal));
+            const newRoomType = !canSelectPartial(clampedAdults, safeVal) && prev.room_type === 'partial'
+                ? 'full' : prev.room_type;
+            return { ...prev, children: safeVal, adults: clampedAdults, room_type: newRoomType };
         });
     };
 
@@ -438,10 +566,31 @@ const BookingForm = () => {
         e.preventDefault();
         setError('');
 
-        if (dateConflict) {
+        if (!checkInDate) {
+            setError('Please select both Check-in and Check-out dates on the calendar.');
+            return;
+        }
+
+        if (!checkOutDate) {
+            const formattedCheckIn = format(new Date(checkInDate), 'dd MMM yyyy');
+            setError(`Check-in selected for ${formattedCheckIn}. Please select your Check-out date on the calendar before proceeding.`);
+            return;
+        }
+
+        const startMidnight = new Date(checkInDate); startMidnight.setHours(0, 0, 0, 0);
+        const endMidnight = new Date(checkOutDate); endMidnight.setHours(0, 0, 0, 0);
+        const stayNights = Math.round((endMidnight - startMidnight) / (1000 * 60 * 60 * 24));
+
+        if (stayNights < 1) {
+            setError('Check-out date must be at least 1 day after check-in. Please select your Check-out date.');
+            return;
+        }
+
+        if (dateConflict || isRangeUnavailable(checkInDate, checkOutDate, formData.room_type)) {
             setError('Selected dates are booked or blocked. Please choose different dates.');
             return;
         }
+
         if (!isValidName(formData.guest_name)) {
             setError('Please enter a valid full name (letters only, min 3 characters)');
             return;
@@ -450,69 +599,91 @@ const BookingForm = () => {
             setError('Please enter a valid email address');
             return;
         }
-        if (!isValidPhone(formData.phone)) {
-            setError('Please enter a valid phone number (digits only, 6–15 digits)');
+
+        const digitsOnly = (formData.phone || '').replace(/\D/g, '');
+        if (!digitsOnly) {
+            setError('Please enter your phone number');
             return;
         }
-        if (!dateRange || !dateRange[0] || !dateRange[1]) {
-            setError('Please select check-in and check-out dates');
+        const phoneConfig = getPhoneConfig(formData.country_code);
+        const phoneError = phoneConfig.validate(digitsOnly);
+        if (phoneError) {
+            setError(phoneError);
             return;
         }
-        if (formData.adults < 3) {
+
+        const adultsNum = Number(formData.adults) || 3;
+        const childrenNum = Number(formData.children) || 0;
+
+        if (adultsNum < 3) {
             setError('Minimum 3 adults required');
             return;
         }
 
-        const checkIn  = dateRange[0];
-        const checkOut = dateRange[1];
-        const nights   = Math.round((checkOut - checkIn) / (1000 * 60 * 60 * 24));
-        if (nights < 1) { setError('Minimum stay is 1 night'); return; }
-
-        const conflict = isRangeUnavailable(checkIn, checkOut, formData.room_type);
-        if (conflict) {
-            setError('Selected dates are booked or blocked. Please choose different dates.');
+        const maxAdultsForKids = getMaxAdults(childrenNum);
+        if (adultsNum > maxAdultsForKids) {
+            setError(`For ${childrenNum} children, maximum ${maxAdultsForKids} adults allowed.`);
             return;
         }
+
+        const checkIn  = checkInDate;
+        const checkOut = checkOutDate;
+        const nights   = stayNights;
 
         const newBookingId = confirmBookingId || generateBookingId();
         if (!confirmBookingId) setBookingId(newBookingId);
 
         const guests_count = formData.adults + formData.children;
 
+        const bookingPayload = {
+            booking_id: newBookingId,
+            guest_name: formData.guest_name,
+            email: formData.email,
+            phone: formData.country_code + formData.phone,
+            adults: formData.adults,
+            children: formData.children,
+            room_type: formData.room_type,
+            booking_type: formData.room_type === 'partial' ? 'half villa'
+                : formData.room_type === 'remaining' ? 'remaining'
+                : 'full villa',
+            room_label: formData.room_type === 'partial' ? 'Half Villa'
+                : formData.room_type === 'remaining' ? 'Remaining Room'
+                : 'Full Villa',
+            guests_count,
+            check_in_date: format(checkIn, 'yyyy-MM-dd'),
+            check_out_date: format(checkOut, 'yyyy-MM-dd'),
+            total_amount: totalAmount,
+            status: 'Enquery',
+            source: 'website'
+        };
+
         if (!booking_id) {
-            fetch(`${import.meta.env.VITE_N8N_URL}/registeration`, {
+            // Save Enquiry directly into Supabase database via Backend API
+            fetch(`${API_URL}/api/bookings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    booking_id: newBookingId,
-                    guest_name: formData.guest_name,
-                    email: formData.email,
-                    phone: formData.country_code + formData.phone,
-                    adults: formData.adults,
-                    children: formData.children,
-                    room_type: formData.room_type,
-                    booking_type: formData.room_type === 'partial' ? 'half villa'
-                        : formData.room_type === 'remaining' ? 'remaining'
-                        : 'full villa',
-                    room_label: formData.room_type === 'partial' ? 'Half Villa'
-                        : formData.room_type === 'remaining' ? 'Remaining Room'
-                        : 'Full Villa',
-                    guests_count,
-                    check_in_date: format(checkIn, 'yyyy-MM-dd'),
-                    check_out_date: format(checkOut, 'yyyy-MM-dd'),
-                    source: 'website',
-                    timestamp: new Date().toISOString(),
-                    payment: { status: 'enquiry' }
-                })
-            }).catch(err => console.error('Enquiry webhook failed', err));
+                body: JSON.stringify(bookingPayload)
+            }).catch(err => console.error('Error saving enquiry to database:', err));
+
+            if (import.meta.env.VITE_N8N_URL) {
+                fetch(`${import.meta.env.VITE_N8N_URL}/registeration`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...bookingPayload,
+                        timestamp: new Date().toISOString(),
+                        payment: { status: 'enquiry' }
+                    })
+                }).catch(err => console.warn('Enquiry webhook notification skipped:', err));
+            }
         }
 
         setStep('payment');
     };
 
     const handlePaymentSuccess = async (status, paymentDetails = {}) => {
-        const checkIn     = dateRange[0];
-        const checkOut    = dateRange[1];
+        const checkIn     = checkInDate;
+        const checkOut    = checkOutDate;
         const totalAmount = calculateTotal();
         const bookingId   = confirmBookingId;
 
@@ -535,7 +706,10 @@ const BookingForm = () => {
             guests_count,
             check_in_date:  format(checkIn,  'yyyy-MM-dd'),
             check_out_date: format(checkOut, 'yyyy-MM-dd'),
-            total_amount: totalAmount
+            total_amount: totalAmount,
+            status: status === 'verified' ? 'confirmed' : 'failed',
+            payment_id: paymentDetails?.razorpay_payment_id || null,
+            source: 'website'
         };
 
         const webhookPayload = {
@@ -554,11 +728,20 @@ const BookingForm = () => {
         };
 
         try {
-            fetch(`${import.meta.env.VITE_N8N_URL}/registeration`, {
+            // Save Confirmed Booking directly into Supabase database via Backend API
+            await fetch(`${API_URL}/api/bookings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(webhookPayload)
-            }).catch(err => console.error('n8n webhook failed', err));
+                body: JSON.stringify(bookingPayload)
+            });
+
+            if (import.meta.env.VITE_N8N_URL) {
+                fetch(`${import.meta.env.VITE_N8N_URL}/registeration`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(webhookPayload)
+                }).catch(err => console.warn('n8n webhook skipped:', err));
+            }
 
             if (status === 'failed') {
                 setPaymentStatus('failed');
@@ -578,7 +761,7 @@ const BookingForm = () => {
 
     const generateReceiptAndNotify = async (webhookPayload) => {
         try {
-            await fetch(`${import.meta.env.VITE_API_URL}/api/send-receipt`, {
+            await fetch(`${API_URL}/api/send-receipt`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(webhookPayload),
@@ -604,17 +787,18 @@ const BookingForm = () => {
     }
 
     const nights = (() => {
-        if (!dateRange || !dateRange[0] || !dateRange[1]) return 0;
-        const s = new Date(dateRange[0]); s.setHours(0, 0, 0, 0);
-        const e = new Date(dateRange[1]); e.setHours(0, 0, 0, 0);
-        return Math.round((e - s) / (1000 * 60 * 60 * 24));
+        if (!checkInDate || !checkOutDate) return 0;
+        const s = new Date(checkInDate); s.setHours(0, 0, 0, 0);
+        const e = new Date(checkOutDate); e.setHours(0, 0, 0, 0);
+        const diff = Math.round((e - s) / (1000 * 60 * 60 * 24));
+        return diff > 0 ? diff : 0;
     })();
 
     const totalAmount   = calculateTotal();
-    const pricePerNight = getPriceForDate(dateRange?.[0] || new Date());
+    const pricePerNight = getPriceForDate(checkInDate || new Date());
 
-    const datesSelected = dateRange && dateRange[0] && dateRange[1];
-    const rangeHasPartial = datesSelected && doesRangeHavePartial(dateRange[0], dateRange[1]);
+    const datesSelected = !!(checkInDate && checkOutDate);
+    const rangeHasPartial = datesSelected && doesRangeHavePartial(checkInDate, checkOutDate);
     const partialAllowed  = canSelectPartial(formData.adults, formData.children);
 
     const getTileContent = ({ date, view }) => {
@@ -726,9 +910,15 @@ const BookingForm = () => {
                             />
 
                             <div className="mt-4 text-center" style={{ fontWeight: '500', color: 'var(--primary)' }}>
-                                {nights > 0
-                                    ? `${format(dateRange[0], 'MMM dd')} – ${format(dateRange[1], 'MMM dd')} (${nights} night${nights > 1 ? 's' : ''})`
-                                    : 'Select Check-in and Check-out dates'}
+                                {checkInDate && checkOutDate && nights > 0 ? (
+                                    `${format(checkInDate, 'MMM dd')} – ${format(checkOutDate, 'MMM dd')} (${nights} night${nights > 1 ? 's' : ''})`
+                                ) : checkInDate ? (
+                                    <span>
+                                        Check-in: <strong>{format(checkInDate, 'MMM dd, yyyy')}</strong> • <span style={{ color: '#d97706' }}>Please select Check-out date</span>
+                                    </span>
+                                ) : (
+                                    'Select Check-in and Check-out dates'
+                                )}
                             </div>
 
                             {dateConflict && (
@@ -770,7 +960,7 @@ const BookingForm = () => {
                                     <select
                                         className="phone-country-select"
                                         value={formData.country_code}
-                                        onChange={e => setFormData({ ...formData, country_code: e.target.value })}
+                                        onChange={handleCountryCodeChange}
                                     >
                                         {COUNTRY_CODES.map(c => (
                                             <option key={c.code} value={c.code}>{c.label}</option>
@@ -779,9 +969,24 @@ const BookingForm = () => {
                                     <input
                                         className="phone-number-input"
                                         type="tel"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
+                                        maxLength={getPhoneConfig(formData.country_code).maxLength}
                                         value={formData.phone}
-                                        onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                        placeholder="98765 43210"
+                                        onChange={handlePhoneChange}
+                                        onKeyDown={(e) => {
+                                            if (
+                                                ['Backspace', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'Delete'].includes(e.key) ||
+                                                ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase()))
+                                            ) {
+                                                return;
+                                            }
+                                            if (!/^\d$/.test(e.key)) {
+                                                e.preventDefault();
+                                            }
+                                        }}
+                                        placeholder={getPhoneConfig(formData.country_code).placeholder}
+                                        autoComplete="tel-national"
                                     />
                                 </div>
                             </div>
@@ -792,18 +997,24 @@ const BookingForm = () => {
                                     <label>Adults <span style={{ color: '#aaa', fontWeight: 400 }}>(3–{getMaxAdults(formData.children)})</span></label>
                                     <input
                                         type="number"
-                                        min={3} max={getMaxAdults(formData.children)}
+                                        min={3}
+                                        max={getMaxAdults(formData.children)}
                                         value={formData.adults}
                                         onChange={handleAdultsChange}
+                                        onBlur={handleAdultsBlur}
+                                        onFocus={e => e.target.select()}
                                     />
                                 </div>
                                 <div className="form-group">
                                     <label>Children <span style={{ color: '#aaa', fontWeight: 400 }}>(0–{getMaxChildren(formData.adults)})</span></label>
                                     <input
                                         type="number"
-                                        min={0} max={getMaxChildren(formData.adults)}
+                                        min={0}
+                                        max={getMaxChildren(formData.adults)}
                                         value={formData.children}
                                         onChange={handleChildrenChange}
+                                        onBlur={handleChildrenBlur}
+                                        onFocus={e => e.target.select()}
                                     />
                                 </div>
                             </div>
@@ -830,8 +1041,22 @@ const BookingForm = () => {
                             )}
 
                             {error && (
-                                <div className="error-message" style={{ marginBottom: '12px' }}>
-                                    {error}
+                                <div className="error-message" style={{
+                                    marginBottom: '14px',
+                                    padding: '12px 14px',
+                                    background: '#fff3f3',
+                                    border: '1px solid #ff4d4f',
+                                    borderRadius: '8px',
+                                    color: '#d32f2f',
+                                    fontWeight: '500',
+                                    fontSize: '14px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    lineHeight: '1.4'
+                                }}>
+                                    <span style={{ fontSize: '16px' }}>⚠️</span>
+                                    <span>{error}</span>
                                 </div>
                             )}
 
