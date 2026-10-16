@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { format } from 'date-fns';
+import { CheckCircle2, AlertTriangle, Info, Lock } from 'lucide-react';
 import API_URL from '../config';
 import './BookingForm.css';
 import { useParams } from 'react-router-dom';
@@ -33,9 +34,9 @@ const loadRazorpayScript = () => {
 const ROOM_PRICE = { remaining: 2000, partial: 5000, full: 7000 };
 
 const COUNTRY_CODES = [
-    { code: '+91',  label: '🇮🇳 +91'  },
-    { code: '+1',   label: '🇺🇸 +1'   },
-    { code: '+44',  label: '🇬🇧 +44'  },
+    { code: '+91',  label: '+91 (IN)' },
+    { code: '+1',   label: '+1 (US)'  },
+    { code: '+44',  label: '+44 (UK)' },
 ];
 
 // Keyed by adults → max children for the partial (excluding-one-room) option.
@@ -87,16 +88,40 @@ const legacyCountToFields = (count) => {
     return             { adults: 7, children: 0, room_type: 'full' };
 };
 
-// Booking type helpers — check booking_type field (from Sheets) first, fall back to guests_count
-const isFullBooking     = (r) => r.booking_type
-    ? r.booking_type.toLowerCase() === 'full villa'
-    : (r.guests_count >= 6 || !r.guests_count);
-const isPartialBooking  = (r) => r.booking_type
-    ? r.booking_type.toLowerCase() === 'half villa'
-    : r.guests_count === 5;
-const isRemainingBooking = (r) => r.booking_type
-    ? r.booking_type.toLowerCase() === 'remaining'
-    : r.guests_count === 4;
+// Booking type helpers — check booking_type or room_type field first, fall back to guests_count
+const isPartialType = (t) => {
+    if (!t) return false;
+    const s = String(t).toLowerCase();
+    return s.includes('half') || s.includes('partial');
+};
+
+const isRemainingType = (t) => {
+    if (!t) return false;
+    const s = String(t).toLowerCase();
+    return s.includes('remaining');
+};
+
+const isFullType = (t) => {
+    if (!t) return true;
+    const s = String(t).toLowerCase();
+    return s.includes('full') || (!isPartialType(s) && !isRemainingType(s));
+};
+
+const isFullBooking = (r) => {
+    const t = r.booking_type || r.room_type;
+    if (t) return isFullType(t);
+    return r.guests_count >= 6 || !r.guests_count;
+};
+const isPartialBooking = (r) => {
+    const t = r.booking_type || r.room_type;
+    if (t) return isPartialType(t);
+    return r.guests_count === 5;
+};
+const isRemainingBooking = (r) => {
+    const t = r.booking_type || r.room_type;
+    if (t) return isRemainingType(t);
+    return r.guests_count === 4;
+};
 
 // ── CheckoutForm ───────────────────────────────────────────────────
 const CheckoutForm = ({ bookingData, onPaymentSuccess, onCancel }) => {
@@ -131,11 +156,21 @@ const CheckoutForm = ({ bookingData, onPaymentSuccess, onCancel }) => {
                 body: JSON.stringify({ amount: bookingData.total_amount })
             });
 
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || `Server responded with ${res.status}`);
+            }
+
             const data = await res.json();
-            if (!data.order) throw new Error("Order not created");
+            if (!data.order) throw new Error(data.error || "Order not created");
+
+            const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY;
+            if (!razorpayKey) {
+                throw new Error("Razorpay Key is missing in client environment (VITE_RAZORPAY_KEY)");
+            }
 
             const options = {
-                key: import.meta.env.VITE_RAZORPAY_KEY,
+                key: razorpayKey,
                 amount: data.order.amount,
                 currency: "INR",
                 name: "Krish Homestays",
@@ -170,10 +205,15 @@ const CheckoutForm = ({ bookingData, onPaymentSuccess, onCancel }) => {
             };
 
             const rzp = new window.Razorpay(options);
+            rzp.on('payment.failed', function (response) {
+                console.error("Razorpay payment failed:", response.error);
+                setError(response.error.description || "Payment failed");
+            });
             rzp.open();
 
-        } catch {
-            setError("Payment failed. Please try again.");
+        } catch (err) {
+            console.error("Payment initiation failed:", err);
+            setError(err.message || "Payment failed. Please try again.");
         } finally {
             setProcessing(false);
         }
@@ -192,7 +232,6 @@ const CheckoutForm = ({ bookingData, onPaymentSuccess, onCancel }) => {
             </div>
             {error && <div className="error-message">{error}</div>}
             <div className="payment-actions" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
-                <button onClick={onCancel} className="btn btn-secondary">Back</button>
                 <button onClick={handlePayment} disabled={processing} className="btn btn-primary">
                     {processing ? "Processing..." : `Pay ₹${bookingData.total_amount}`}
                 </button>
@@ -238,7 +277,7 @@ const BookingForm = () => {
         const fetchBooking = async () => {
             try {
                 const response = await fetch(
-                    `${import.meta.env.VITE_API_URL}/api/booking-enquiry?booking_id=${booking_id}`
+                    `${API_URL}/api/booking-enquiry?booking_id=${booking_id}`
                 );
 
                 const data1 = await response.json();
@@ -300,73 +339,176 @@ const BookingForm = () => {
     // Fully closed: full villa booking, admin-blocked, admin-booked, or both rooms taken (partial+remaining)
     const isDateFullyBooked = (date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
-        const ruleStatus = calendarData.rules[dateStr]?.status;
-        if (ruleStatus === 'blocked' || ruleStatus === 'booked') return true;
+        const rule = calendarData.rules[dateStr];
+        const ruleStatus = rule?.status;
+        const ruleRoomType = rule?.room_type || '';
+
+        // Admin hard-blocked
+        if (ruleStatus === 'blocked') return true;
+
         const on = rangesOnDate(date);
-        const hasFull      = on.some(isFullBooking);
-        const hasPartial   = on.some(isPartialBooking);
-        const hasRemaining = on.some(isRemainingBooking);
-        return hasFull || (hasPartial && hasRemaining);
+        const hasFull = on.some(isFullBooking) || (ruleStatus === 'booked' && isFullType(ruleRoomType));
+        if (hasFull) return true;
+
+        const hasPartial = on.some(isPartialBooking) || (ruleStatus === 'booked' && isPartialType(ruleRoomType));
+        const hasRemaining = on.some(isRemainingBooking) || (ruleStatus === 'booked' && isRemainingType(ruleRoomType));
+
+        return hasPartial && hasRemaining;
     };
 
     // Partially available: a half villa booking exists but the remaining room is still free
     const isDatePartiallyBooked = (date) => {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const rule = calendarData.rules[dateStr];
+        const ruleStatus = rule?.status;
+        const ruleRoomType = rule?.room_type || '';
+
+        if (ruleStatus === 'blocked') return false;
+
         const on = rangesOnDate(date);
-        return on.some(isPartialBooking) && !on.some(isRemainingBooking);
+        const hasFull = on.some(isFullBooking) || (ruleStatus === 'booked' && isFullType(ruleRoomType));
+        if (hasFull) return false;
+
+        const hasRemaining = on.some(isRemainingBooking) || (ruleStatus === 'booked' && isRemainingType(ruleRoomType));
+        if (hasRemaining) return false;
+
+        const hasPartial = on.some(isPartialBooking) || (ruleStatus === 'booked' && isPartialType(ruleRoomType));
+        return hasPartial;
+    };
+
+    // Remaining room status & extension rules:
+    // If range overlaps with partial-booked dates, user can book remaining room.
+    // Allowed extensions: at most 1 day earlier (check-in) and/or at most 1 day later (check-out),
+    // provided those extension dates are open/available.
+    const getRemainingRoomStatus = (start, end) => {
+        if (!start || !end) return { isRemainingEligible: false, hasPartial: false };
+        let s = new Date(start); s.setHours(0, 0, 0, 0);
+        let e = new Date(end); e.setHours(0, 0, 0, 0);
+        if (s >= e) return { isRemainingEligible: false, hasPartial: false };
+
+        const dates = [];
+        let curr = new Date(s);
+        while (curr < e) {
+            dates.push(new Date(curr));
+            curr.setDate(curr.getDate() + 1);
+        }
+
+        const partialDates = dates.filter(d => isDatePartiallyBooked(d));
+        if (partialDates.length === 0) {
+            return { isRemainingEligible: false, hasPartial: false };
+        }
+
+        const minPartialTime = Math.min(...partialDates.map(d => d.getTime()));
+        const maxPartialTime = Math.max(...partialDates.map(d => d.getTime()));
+        const minPartialDate = new Date(minPartialTime);
+        const maxPartialDate = new Date(maxPartialTime);
+
+        // Gap check: all dates between earliest partial and latest partial date in selection must be partial dates
+        let gapCheck = new Date(minPartialDate);
+        while (gapCheck <= maxPartialDate) {
+            if (!isDatePartiallyBooked(gapCheck)) {
+                return { isRemainingEligible: false, hasPartial: true, invalidReason: 'gap' };
+            }
+            gapCheck.setDate(gapCheck.getDate() + 1);
+        }
+
+        // Limit extension to at most 1 day before minPartialDate and at most 1 day after maxPartialDate
+        const daysBefore = Math.round((minPartialTime - s.getTime()) / (1000 * 60 * 60 * 24));
+        const daysAfter = Math.round((e.getTime() - (maxPartialTime + 24 * 60 * 60 * 1000)) / (1000 * 60 * 60 * 24));
+
+        if (daysBefore > 1 || daysAfter > 1 || daysBefore < 0 || daysAfter < 0) {
+            return {
+                isRemainingEligible: false,
+                hasPartial: true,
+                invalidReason: 'extension_exceeded',
+                daysBefore,
+                daysAfter
+            };
+        }
+
+        // Verify that the extension days (if any) are not booked or blocked
+        for (const d of dates) {
+            if (!isDatePartiallyBooked(d)) {
+                const dateStr = format(d, 'yyyy-MM-dd');
+                const rule = calendarData.rules[dateStr];
+                if (rule?.status === 'blocked' || rule?.status === 'booked' || rangesOnDate(d).length > 0) {
+                    return { isRemainingEligible: false, hasPartial: true, invalidReason: 'extension_blocked' };
+                }
+            }
+        }
+
+        return {
+            isRemainingEligible: true,
+            hasPartial: true,
+            extendedBefore: daysBefore === 1,
+            extendedAfter: daysAfter === 1
+        };
     };
 
     // True if ANY date in range has a partial booking still available for the remaining room
     const doesRangeHavePartial = (start, end) => {
-        if (!start || !end) return false;
-        let current = new Date(start); current.setHours(0, 0, 0, 0);
-        const endDate = new Date(end); endDate.setHours(0, 0, 0, 0);
-        while (current < endDate) {
-            if (isDatePartiallyBooked(current)) return true;
-            current.setDate(current.getDate() + 1);
-        }
-        return false;
+        return getRemainingRoomStatus(start, end).hasPartial;
     };
 
     // roomTypeOverride lets us check conflict before state updates settle
     const isDateUnavailable = (date, roomTypeOverride) => {
         const rt = roomTypeOverride !== undefined ? roomTypeOverride : formData.room_type;
         const dateStr = format(date, 'yyyy-MM-dd');
-        const ruleStatus = calendarData.rules[dateStr]?.status;
-        if (ruleStatus === 'blocked' || ruleStatus === 'booked') return true;
+        const rule = calendarData.rules[dateStr];
+        const ruleStatus = rule?.status;
+        const ruleRoomType = rule?.room_type || '';
+
+        // Hard block by admin
+        if (ruleStatus === 'blocked') return true;
 
         const on = rangesOnDate(date);
-        if (on.length === 0) return false;
+        const hasFull = on.some(isFullBooking) || (ruleStatus === 'booked' && isFullType(ruleRoomType));
+        const hasRemaining = on.some(isRemainingBooking) || (ruleStatus === 'booked' && isRemainingType(ruleRoomType));
+        const hasPartial = on.some(isPartialBooking) || (ruleStatus === 'booked' && isPartialType(ruleRoomType));
 
         if (rt === 'remaining') {
-            // Remaining room is only available when there's a half villa booking
-            // and no prior remaining booking
-            const hasPartial   = on.some(isPartialBooking);
-            const hasRemaining = on.some(isRemainingBooking);
-            const hasFull      = on.some(isFullBooking);
-            return hasFull || hasRemaining || !hasPartial;
+            if (hasPartial) {
+                return hasFull || hasRemaining;
+            }
+            return hasFull || hasRemaining || on.length > 0;
         }
 
-        // partial or full: blocked by any existing booking
-        return true;
+        return hasFull || hasPartial || hasRemaining || ruleStatus === 'booked';
     };
 
     const isRangeUnavailable = (start, end, roomTypeOverride) => {
         if (!start || !end) return false;
-        let current = new Date(start);
-        const endDate = new Date(end);
+        const rt = roomTypeOverride !== undefined ? roomTypeOverride : formData.room_type;
+        const status = getRemainingRoomStatus(start, end);
+
+        if (rt === 'remaining') {
+            if (!status.isRemainingEligible) return true;
+        } else {
+            // Full or partial villa cannot be booked over existing partial dates
+            if (status.hasPartial) return true;
+        }
+
+        let current = new Date(start); current.setHours(0, 0, 0, 0);
+        const endDate = new Date(end); endDate.setHours(0, 0, 0, 0);
         while (current < endDate) {
-            if (isDateUnavailable(current, roomTypeOverride)) return true;
+            if (isDateUnavailable(current, rt)) return true;
             current.setDate(current.getDate() + 1);
         }
         return false;
     };
 
     // Derived — no state needed, recomputed on every relevant change
+    const remainingStatus = checkInDate && checkOutDate ? getRemainingRoomStatus(checkInDate, checkOutDate) : null;
+    const isRemaining = formData.room_type === 'remaining';
+
     const dateConflict = !!(checkInDate && checkOutDate &&
         isRangeUnavailable(checkInDate, checkOutDate, formData.room_type));
 
     // ─── Pricing ───────────────────────────────────────────────────
     const getPriceForDate = (date) => {
+        if (formData.room_type === 'remaining') {
+            return ROOM_PRICE.remaining; // ₹2000/night for remaining room
+        }
         const customPrice = calendarData.rules[format(date, 'yyyy-MM-dd')]?.price;
         return customPrice || ROOM_PRICE[formData.room_type] || 7000;
     };
@@ -464,15 +606,37 @@ const BookingForm = () => {
         const cIn = Array.isArray(range) ? range[0] : (range instanceof Date ? range : null);
         const cOut = Array.isArray(range) && range[1] ? range[1] : null;
         if (cIn && cOut) {
-            const hasPartial = doesRangeHavePartial(cIn, cOut);
-            const newRoomType = hasPartial ? 'remaining'
-                : (formData.room_type === 'remaining' ? 'full' : formData.room_type);
-            setFormData(prev => ({ ...prev, room_type: newRoomType }));
-        } else {
-            setFormData(prev => ({
-                ...prev,
-                room_type: prev.room_type === 'remaining' ? 'full' : prev.room_type
-            }));
+            const status = getRemainingRoomStatus(cIn, cOut);
+            if (status.isRemainingEligible) {
+                setFormData(prev => {
+                    let newAdults = Number(prev.adults) || 2;
+                    let newChildren = Number(prev.children) || 0;
+                    if (newAdults > 3 || newAdults < 1) newAdults = 2;
+                    if (newAdults + newChildren > 3) {
+                        newChildren = Math.max(0, 3 - newAdults);
+                    }
+                    return {
+                        ...prev,
+                        room_type: 'remaining',
+                        adults: newAdults,
+                        children: newChildren
+                    };
+                });
+            } else {
+                setFormData(prev => {
+                    let newAdults = Number(prev.adults) || 3;
+                    if (newAdults < 3) newAdults = 3;
+                    let newRoomType = prev.room_type === 'remaining' ? 'full' : prev.room_type;
+                    if (newRoomType === 'partial' && !canSelectPartial(newAdults, prev.children)) {
+                        newRoomType = 'full';
+                    }
+                    return {
+                        ...prev,
+                        room_type: newRoomType,
+                        adults: newAdults
+                    };
+                });
+            }
         }
     };
 
@@ -486,35 +650,49 @@ const BookingForm = () => {
         let num;
         if (raw.length > 1 && raw !== '10') {
             const lastDigit = parseInt(raw.slice(-1), 10);
-            num = isNaN(lastDigit) ? 3 : lastDigit;
+            num = isNaN(lastDigit) ? (isRemaining ? 1 : 3) : lastDigit;
         } else {
             num = parseInt(raw, 10);
         }
 
-        const max = getMaxAdults(Number(formData.children) || 0);
-        const val = Math.min(max, Math.max(1, isNaN(num) ? 3 : num));
+        if (isRemaining) {
+            const currentChildren = Number(formData.children) || 0;
+            const max = Math.max(1, 3 - currentChildren);
+            const val = Math.min(max, Math.max(1, isNaN(num) ? 1 : num));
+            setFormData(prev => ({ ...prev, adults: val }));
+        } else {
+            const max = getMaxAdults(Number(formData.children) || 0);
+            const val = Math.min(max, Math.max(1, isNaN(num) ? 3 : num));
 
-        setFormData(prev => {
-            const currentChildren = Number(prev.children) || 0;
-            const clampedChildren = Math.min(currentChildren, getMaxChildren(val));
-            const newRoomType = !canSelectPartial(val, clampedChildren) && prev.room_type === 'partial'
-                ? 'full' : prev.room_type;
-            return { ...prev, adults: val, children: clampedChildren, room_type: newRoomType };
-        });
+            setFormData(prev => {
+                const currentChildren = Number(prev.children) || 0;
+                const clampedChildren = Math.min(currentChildren, getMaxChildren(val));
+                const newRoomType = !canSelectPartial(val, clampedChildren) && prev.room_type === 'partial'
+                    ? 'full' : prev.room_type;
+                return { ...prev, adults: val, children: clampedChildren, room_type: newRoomType };
+            });
+        }
     };
 
     const handleAdultsBlur = () => {
         const val = parseInt(formData.adults, 10);
-        const max = getMaxAdults(Number(formData.children) || 0);
-        const safeVal = isNaN(val) || val < 3 ? 3 : Math.min(max, val);
+        if (isRemaining) {
+            const currentChildren = Number(formData.children) || 0;
+            const max = Math.max(1, 3 - currentChildren);
+            const safeVal = isNaN(val) || val < 1 ? 1 : Math.min(max, val);
+            setFormData(prev => ({ ...prev, adults: safeVal }));
+        } else {
+            const max = getMaxAdults(Number(formData.children) || 0);
+            const safeVal = isNaN(val) || val < 3 ? 3 : Math.min(max, val);
 
-        setFormData(prev => {
-            const currentChildren = Number(prev.children) || 0;
-            const clampedChildren = Math.min(currentChildren, getMaxChildren(safeVal));
-            const newRoomType = !canSelectPartial(safeVal, clampedChildren) && prev.room_type === 'partial'
-                ? 'full' : prev.room_type;
-            return { ...prev, adults: safeVal, children: clampedChildren, room_type: newRoomType };
-        });
+            setFormData(prev => {
+                const currentChildren = Number(prev.children) || 0;
+                const clampedChildren = Math.min(currentChildren, getMaxChildren(safeVal));
+                const newRoomType = !canSelectPartial(safeVal, clampedChildren) && prev.room_type === 'partial'
+                    ? 'full' : prev.room_type;
+                return { ...prev, adults: safeVal, children: clampedChildren, room_type: newRoomType };
+            });
+        }
     };
 
     const handleChildrenChange = (e) => {
@@ -532,30 +710,44 @@ const BookingForm = () => {
             num = parseInt(raw, 10);
         }
 
-        const currentAdults = Number(formData.adults) || 3;
-        const max = getMaxChildren(currentAdults);
-        const val = Math.min(max, Math.max(0, isNaN(num) ? 0 : num));
+        if (isRemaining) {
+            const currentAdults = Number(formData.adults) || 1;
+            const max = Math.max(0, 3 - currentAdults);
+            const val = Math.min(max, Math.max(0, isNaN(num) ? 0 : num));
+            setFormData(prev => ({ ...prev, children: val }));
+        } else {
+            const currentAdults = Number(formData.adults) || 3;
+            const max = getMaxChildren(currentAdults);
+            const val = Math.min(max, Math.max(0, isNaN(num) ? 0 : num));
 
-        setFormData(prev => {
-            const clampedAdults = Math.min(Number(prev.adults) || 3, getMaxAdults(val));
-            const newRoomType = !canSelectPartial(clampedAdults, val) && prev.room_type === 'partial'
-                ? 'full' : prev.room_type;
-            return { ...prev, children: val, adults: clampedAdults, room_type: newRoomType };
-        });
+            setFormData(prev => {
+                const clampedAdults = Math.min(Number(prev.adults) || 3, getMaxAdults(val));
+                const newRoomType = !canSelectPartial(clampedAdults, val) && prev.room_type === 'partial'
+                    ? 'full' : prev.room_type;
+                return { ...prev, children: val, adults: clampedAdults, room_type: newRoomType };
+            });
+        }
     };
 
     const handleChildrenBlur = () => {
         const val = parseInt(formData.children, 10);
-        const currentAdults = Number(formData.adults) || 3;
-        const max = getMaxChildren(currentAdults);
-        const safeVal = isNaN(val) || val < 0 ? 0 : Math.min(max, val);
+        if (isRemaining) {
+            const currentAdults = Number(formData.adults) || 1;
+            const max = Math.max(0, 3 - currentAdults);
+            const safeVal = isNaN(val) || val < 0 ? 0 : Math.min(max, val);
+            setFormData(prev => ({ ...prev, children: safeVal }));
+        } else {
+            const currentAdults = Number(formData.adults) || 3;
+            const max = getMaxChildren(currentAdults);
+            const safeVal = isNaN(val) || val < 0 ? 0 : Math.min(max, val);
 
-        setFormData(prev => {
-            const clampedAdults = Math.min(Number(prev.adults) || 3, getMaxAdults(safeVal));
-            const newRoomType = !canSelectPartial(clampedAdults, safeVal) && prev.room_type === 'partial'
-                ? 'full' : prev.room_type;
-            return { ...prev, children: safeVal, adults: clampedAdults, room_type: newRoomType };
-        });
+            setFormData(prev => {
+                const clampedAdults = Math.min(Number(prev.adults) || 3, getMaxAdults(safeVal));
+                const newRoomType = !canSelectPartial(clampedAdults, safeVal) && prev.room_type === 'partial'
+                    ? 'full' : prev.room_type;
+                return { ...prev, children: safeVal, adults: clampedAdults, room_type: newRoomType };
+            });
+        }
     };
 
     const handleRoomTypeChange = (e) => {
@@ -586,6 +778,18 @@ const BookingForm = () => {
             return;
         }
 
+        const statusCheck = checkInDate && checkOutDate ? getRemainingRoomStatus(checkInDate, checkOutDate) : null;
+        if (statusCheck?.hasPartial && !statusCheck.isRemainingEligible) {
+            if (statusCheck.invalidReason === 'extension_exceeded') {
+                setError('Remaining room can only be extended by at most 1 day earlier or 1 day later.');
+                return;
+            }
+            if (statusCheck.invalidReason === 'extension_blocked') {
+                setError('The extended check-in or check-out date is already booked or blocked.');
+                return;
+            }
+        }
+
         if (dateConflict || isRangeUnavailable(checkInDate, checkOutDate, formData.room_type)) {
             setError('Selected dates are booked or blocked. Please choose different dates.');
             return;
@@ -612,18 +816,30 @@ const BookingForm = () => {
             return;
         }
 
-        const adultsNum = Number(formData.adults) || 3;
+        const isRemainingBooking = formData.room_type === 'remaining';
+        const adultsNum = Number(formData.adults) || (isRemainingBooking ? 1 : 3);
         const childrenNum = Number(formData.children) || 0;
 
-        if (adultsNum < 3) {
-            setError('Minimum 3 adults required');
-            return;
-        }
+        if (isRemainingBooking) {
+            if (adultsNum < 1) {
+                setError('At least 1 adult is required for the remaining room.');
+                return;
+            }
+            if (adultsNum + childrenNum > 3) {
+                setError('Remaining room allows a maximum of 1 to 3 members total.');
+                return;
+            }
+        } else {
+            if (adultsNum < 3) {
+                setError('Minimum 3 adults required');
+                return;
+            }
 
-        const maxAdultsForKids = getMaxAdults(childrenNum);
-        if (adultsNum > maxAdultsForKids) {
-            setError(`For ${childrenNum} children, maximum ${maxAdultsForKids} adults allowed.`);
-            return;
+            const maxAdultsForKids = getMaxAdults(childrenNum);
+            if (adultsNum > maxAdultsForKids) {
+                setError(`For ${childrenNum} children, maximum ${maxAdultsForKids} adults allowed.`);
+                return;
+            }
         }
 
         const checkIn  = checkInDate;
@@ -634,6 +850,8 @@ const BookingForm = () => {
         if (!confirmBookingId) setBookingId(newBookingId);
 
         const guests_count = formData.adults + formData.children;
+
+        const totalAmount = calculateTotal();
 
         const bookingPayload = {
             booking_id: newBookingId,
@@ -654,11 +872,14 @@ const BookingForm = () => {
             check_out_date: format(checkOut, 'yyyy-MM-dd'),
             total_amount: totalAmount,
             status: 'Enquery',
-            source: 'website'
+            source: 'website',
+            timestamp: new Date().toISOString(),
+            payment: { status: 'enquiry' }
         };
 
         if (!booking_id) {
             // Save Enquiry directly into Supabase database via Backend API
+            // Save enquiry via backend API
             fetch(`${API_URL}/api/registration`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -670,18 +891,6 @@ const BookingForm = () => {
                     body: JSON.stringify(bookingPayload)
                 }).catch(err => console.error('Error saving enquiry to database:', err));
             });
-
-            if (import.meta.env.VITE_N8N_URL) {
-                fetch(`${import.meta.env.VITE_N8N_URL}/registeration`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        ...bookingPayload,
-                        timestamp: new Date().toISOString(),
-                        payment: { status: 'enquiry' }
-                    })
-                }).catch(err => console.warn('Enquiry webhook notification skipped:', err));
-            }
         }
 
         setStep('payment');
@@ -749,14 +958,6 @@ const BookingForm = () => {
                 }).catch(err => console.error('Error saving booking:', err));
             }
 
-            if (import.meta.env.VITE_N8N_URL) {
-                fetch(`${import.meta.env.VITE_N8N_URL}/registeration`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(webhookPayload)
-                }).catch(err => console.warn('n8n webhook skipped:', err));
-            }
-
             if (status === 'failed') {
                 setPaymentStatus('failed');
                 setError('Payment failed. We will remind you shortly.');
@@ -789,7 +990,9 @@ const BookingForm = () => {
     if (step === 'success') {
         return (
             <div className="glass-card text-center section" style={{ padding: '50px' }}>
-                <div style={{ fontSize: '60px', marginBottom: '20px' }}>✅</div>
+                <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'center' }}>
+                    <CheckCircle2 size={56} color="#2C5F2D" />
+                </div>
                 <h2 style={{ color: 'var(--primary)', marginBottom: '20px' }}>Booking Confirmed!</h2>
                 <p>Thank you, <strong>{formData.guest_name}</strong>.</p>
                 <p>We have sent a confirmation to <strong>{formData.email}</strong>.</p>
@@ -843,15 +1046,24 @@ const BookingForm = () => {
             fontSize: '13px', color: '#1f6f43'
         };
 
-        if (rangeHasPartial) {
+        if (remainingStatus?.isRemainingEligible) {
+            const extensionText = (remainingStatus.extendedBefore && remainingStatus.extendedAfter)
+                ? ' (Includes 1-day check-in & check-out extension)'
+                : remainingStatus.extendedBefore
+                ? ' (Includes 1-day early check-in extension)'
+                : remainingStatus.extendedAfter
+                ? ' (Includes 1-day check-out extension)'
+                : '';
+
             return (
                 <div className="form-group">
                     <label>Room Option</label>
-                    <select value="remaining" disabled style={{ opacity: 0.8 }}>
+                    <select value="remaining" disabled style={{ opacity: 0.9, fontWeight: 500 }}>
                         <option value="remaining">Remaining room — ₹2,000/night</option>
                     </select>
-                    <div style={{ ...infoStyle, marginTop: '8px' }}>
-                        This date has a partial booking. Only the remaining room is available.
+                    <div style={{ ...infoStyle, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Info size={16} color="#2563eb" style={{ flexShrink: 0 }} />
+                        <span>Selected dates have a partial booking. Remaining room is available for 1–3 guests at ₹2,000/night.{extensionText}</span>
                     </div>
                 </div>
             );
@@ -940,10 +1152,15 @@ const BookingForm = () => {
                                     marginTop: '12px', background: '#fff3f3',
                                     border: '1px solid #ff4444', borderRadius: '8px',
                                     padding: '12px 16px', color: '#cc0000',
-                                    fontWeight: '500', fontSize: '14px', textAlign: 'center'
+                                    fontWeight: '500', fontSize: '14px', textAlign: 'center',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
                                 }}>
-                                    ⚠️ One or more selected dates are already booked or blocked.
-                                    Please choose different dates.
+                                    <AlertTriangle size={16} color="#cc0000" style={{ flexShrink: 0 }} />
+                                    <span>{remainingStatus?.invalidReason === 'extension_exceeded'
+                                        ? 'Remaining room can only be extended by at most 1 day earlier or 1 day later from the existing partial stay.'
+                                        : remainingStatus?.invalidReason === 'extension_blocked'
+                                        ? 'The extended check-in or check-out date is already booked or blocked. Please choose different dates.'
+                                        : 'One or more selected dates are already booked or blocked. Please choose different dates.'}</span>
                                 </div>
                             )}
                         </div>
@@ -977,7 +1194,7 @@ const BookingForm = () => {
                                         onChange={handleCountryCodeChange}
                                     >
                                         {COUNTRY_CODES.map(c => (
-                                            <option key={c.code} value={c.code}>{c.label}</option>
+                                             <option key={c.code} value={c.code}>{c.label}</option>
                                         ))}
                                     </select>
                                     <input
@@ -1008,11 +1225,15 @@ const BookingForm = () => {
                             {/* ── Guest Count ── */}
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                                 <div className="form-group">
-                                    <label>Adults <span style={{ color: '#aaa', fontWeight: 400 }}>(3–{getMaxAdults(formData.children)})</span></label>
+                                    <label>Adults <span style={{ color: '#aaa', fontWeight: 400 }}>
+                                        {isRemaining
+                                            ? `(1–${Math.max(1, 3 - (Number(formData.children) || 0))})`
+                                            : `(3–${getMaxAdults(formData.children)})`}
+                                    </span></label>
                                     <input
                                         type="number"
-                                        min={3}
-                                        max={getMaxAdults(formData.children)}
+                                        min={isRemaining ? 1 : 3}
+                                        max={isRemaining ? Math.max(1, 3 - (Number(formData.children) || 0)) : getMaxAdults(formData.children)}
                                         value={formData.adults}
                                         onChange={handleAdultsChange}
                                         onBlur={handleAdultsBlur}
@@ -1020,11 +1241,15 @@ const BookingForm = () => {
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Children <span style={{ color: '#aaa', fontWeight: 400 }}>(0–{getMaxChildren(formData.adults)})</span></label>
+                                    <label>Children <span style={{ color: '#aaa', fontWeight: 400 }}>
+                                        {isRemaining
+                                            ? `(0–${Math.max(0, 3 - (Number(formData.adults) || 1))})`
+                                            : `(0–${getMaxChildren(formData.adults)})`}
+                                    </span></label>
                                     <input
                                         type="number"
                                         min={0}
-                                        max={getMaxChildren(formData.adults)}
+                                        max={isRemaining ? Math.max(0, 3 - (Number(formData.adults) || 1)) : getMaxChildren(formData.adults)}
                                         value={formData.children}
                                         onChange={handleChildrenChange}
                                         onBlur={handleChildrenBlur}
@@ -1069,7 +1294,7 @@ const BookingForm = () => {
                                     gap: '8px',
                                     lineHeight: '1.4'
                                 }}>
-                                    <span style={{ fontSize: '16px' }}>⚠️</span>
+                                    <AlertTriangle size={16} color="#cc0000" style={{ flexShrink: 0 }} />
                                     <span>{error}</span>
                                 </div>
                             )}
@@ -1084,11 +1309,12 @@ const BookingForm = () => {
                                 }}
                                 disabled={dateConflict}
                             >
-                                {dateConflict ? '🚫 Dates Unavailable' : 'Proceed to Payment'}
+                                {dateConflict ? 'Dates Unavailable' : 'Proceed to Payment'}
                             </button>
 
-                            <p style={{ fontSize: '12px', color: '#888', textAlign: 'center', marginTop: '10px' }}>
-                                🔒 Secured by Razorpay
+                            <p style={{ fontSize: '12px', color: '#888', textAlign: 'center', marginTop: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                <Lock size={12} color="#888" />
+                                Secured by Razorpay
                             </p>
                         </form>
                     </div>

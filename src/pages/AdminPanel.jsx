@@ -1,10 +1,12 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
+import OverviewDashboard from './OverviewDashboard';
 import AdminDashboard from './AdminDashboard';
 import BookingList from './BookingList';
+import CalendarRulesList from './CalendarRulesList';
 import InvoiceGenerator from './InvoiceGenerator';
 import { authContext } from '../App';
-import { useNavigate } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Menu, X, LayoutDashboard, Calendar, Users, CalendarRange, FileText, Globe, LogOut } from 'lucide-react';
 import './AdminPanel.css'; 
 
 export default function AdminPanel() {
@@ -14,13 +16,22 @@ export default function AdminPanel() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
-  if (!token) {
-    navigate("/admin")
-  }
+  useEffect(() => {
+    const adminToken = token || localStorage.getItem('adminToken');
+    if (!adminToken) {
+      navigate("/admin");
+    }
+  }, [token, navigate]);
 
   const handleNavClick = (page) => {
       setActivePage(page);
       setIsMobileMenuOpen(false); // Close menu on click in mobile
+  };
+
+  const handleLogout = () => {
+      localStorage.removeItem('adminToken');
+      setToken(null);
+      navigate('/admin');
   };
 
   return (
@@ -28,7 +39,10 @@ export default function AdminPanel() {
       {/* Sidebar */}
       <div className="admin-sidebar">
         <div className="sidebar-header">
-            <h3>Krish Admin</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <img src="/assets/logo/logo.png" alt="Logo" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
+                <h3 style={{ margin: 0, color: '#fff' }}>Krish Admin</h3>
+            </div>
             <button className="hamburger-btn" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
                 {isMobileMenuOpen ? <X size={24} color="#fff" /> : <Menu size={24} color="#fff" />}
             </button>
@@ -39,29 +53,62 @@ export default function AdminPanel() {
               className={`sidebar-item ${activePage === 'dashboard' ? 'active' : ''}`}
               onClick={() => handleNavClick('dashboard')}
             >
-              Dashboard
+              <LayoutDashboard size={18} />
+              <span>Dashboard</span>
+            </div>
+
+            <div
+              className={`sidebar-item ${activePage === 'calendar' ? 'active' : ''}`}
+              onClick={() => handleNavClick('calendar')}
+            >
+              <Calendar size={18} />
+              <span>Calendar</span>
             </div>
 
             <div
               className={`sidebar-item ${activePage === 'bookings' ? 'active' : ''}`}
               onClick={() => handleNavClick('bookings')}
             >
-              Bookings
+              <Users size={18} />
+              <span>Bookings</span>
+            </div>
+
+            <div
+              className={`sidebar-item ${activePage === 'calendar-rules' ? 'active' : ''}`}
+              onClick={() => handleNavClick('calendar-rules')}
+            >
+              <CalendarRange size={18} />
+              <span>Calendar Rules</span>
             </div>
 
             <div
               className={`sidebar-item ${activePage === 'invoice' ? 'active' : ''}`}
               onClick={() => handleNavClick('invoice')}
             >
-              Invoice
+              <FileText size={18} />
+              <span>Invoice</span>
+            </div>
+
+            <div style={{ margin: '20px 0 10px', borderTop: '1px solid rgba(255,255,255,0.1)' }}></div>
+
+            <Link to="/" className="sidebar-item" style={{ textDecoration: 'none', color: '#fff' }}>
+              <Globe size={18} />
+              <span>View Website</span>
+            </Link>
+
+            <div className="sidebar-item" onClick={handleLogout} style={{ color: '#f87171' }}>
+              <LogOut size={18} />
+              <span>Logout</span>
             </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="admin-content">
-        {activePage === 'dashboard' && <AdminDashboard />}
+        {activePage === 'dashboard' && <OverviewDashboard onNavigate={handleNavClick} />}
+        {activePage === 'calendar' && <AdminDashboard />}
         {activePage === 'bookings' && <BookingList />}
+        {activePage === 'calendar-rules' && <CalendarRulesList onNavigate={handleNavClick} />}
         {activePage === 'invoice' && <InvoiceGenerator />}
       </div>
 

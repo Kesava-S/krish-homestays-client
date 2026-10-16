@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
+import { Star } from 'lucide-react';
 import API_URL from '../config';
 
 export default function Review() {
@@ -46,40 +47,24 @@ export default function Review() {
                 timestamp: new Date().toISOString()
             };
 
-            if (import.meta.env.VITE_N8N_URL) {
-                try {
-                    const res = await fetch(`${import.meta.env.VITE_N8N_URL}/review`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(reviewPayload)
-                    });
-                    const data = await res.json();
-                    if (res.ok && data.success) submitSuccess = true;
-                } catch (e) {
-                    console.warn('n8n review webhook unreachable, falling back to server API', e);
-                }
-            }
-
-            if (!submitSuccess) {
-                let res = await fetch(`${API_URL}/api/review`, {
+            let res = await fetch(`${API_URL}/api/review`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(reviewPayload)
+            });
+            if (!res.ok) {
+                res = await fetch(`${API_URL}/api/reviews`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(reviewPayload)
                 });
-                if (!res.ok) {
-                    res = await fetch(`${API_URL}/api/reviews`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(reviewPayload)
-                    });
-                }
-                const data = await res.json();
-                if (!res.ok || (!data.success && data.message !== 'Review submitted')) {
-                    throw new Error(data.error || data.message || 'Failed to submit review');
-                }
+            }
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || (!data.success && data.message !== 'Review submitted')) {
+                throw new Error(data.error || data.message || 'Failed to submit review');
             }
 
-            // ✅ Success Alert
+            // Success Alert
             Swal.fire({
                 icon: 'success',
                 title: 'Thank You!',
@@ -132,11 +117,16 @@ export default function Review() {
                                     key={star}
                                     onClick={() => handleRating(star)}
                                     style={{
-                                        color: formData.rating >= star ? '#f5c518' : '#ccc',
-                                        marginRight: '5px'
+                                        cursor: 'pointer',
+                                        marginRight: '6px',
+                                        display: 'inline-block'
                                     }}
                                 >
-                                    ★
+                                    <Star
+                                        size={24}
+                                        color={formData.rating >= star ? '#f59e0b' : '#d1d5db'}
+                                        fill={formData.rating >= star ? '#f59e0b' : 'none'}
+                                    />
                                 </span>
                             ))}
                         </div>

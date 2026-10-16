@@ -115,3 +115,237 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── ACTION BUTTONS ── */
+.action-buttons-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  vertical-align: middle;
+}
+
+.action-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+  background: transparent;
+}
+
+.action-icon-btn:focus-visible {
+  outline: 2px solid #2C5F2D;
+  outline-offset: 2px;
+}
+
+/* View Action Button (Blue/Info) */
+.action-view-btn {
+  background-color: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.action-view-btn:hover {
+  background-color: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(29, 78, 216, 0.25);
+}
+
+/* Edit Action Button (Brand Forest Green) */
+.action-edit-btn {
+  background-color: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #2C5F2D;
+}
+
+.action-edit-btn:hover {
+  background-color: #2C5F2D;
+  border-color: #2C5F2D;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(44, 95, 45, 0.25);
+}
+
+/* Delete Action Button (Red/Danger) */
+.action-delete-btn {
+  background-color: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+.action-delete-btn:hover {
+  background-color: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);
+}
+
+/* Table Toolbar & Filters */
+.admin-table-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.admin-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-filter-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.admin-filter-btn:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.admin-filter-btn.active {
+  background: #1e293b;
+  color: #fff;
+  border-color: #1e293b;
+}
+
+.admin-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  background-color: #2C5F2D;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-add-btn:hover {
+  background-color: #234c24;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(44, 95, 45, 0.3);
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0;
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-badge.available {
+  background: transparent;
+  color: #15803d;
+}
+
+.status-badge.booked {
+  background: transparent;
+  color: #b45309;
+}
+
+.status-badge.blocked {
+  background: transparent;
+  color: #b91c1c;
+}
+
+/* ── Viewable Notes UI ── */
+.notes-container {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.notes-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.notes-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: #334155;
+  background: #ffffff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.notes-bullet {
+  color: #2C5F2D;
+  font-size: 1.25rem;
+  line-height: 1;
+  margin-top: 1px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.notes-content {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+
+.notes-date-tag {
+  display: inline-block;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  font-family: monospace, monospace;
+  flex-shrink: 0;
+}
+
+.notes-text {
+  flex: 1;
+  word-break: break-word;
+  color: #1e293b;
+}
+
+.notes-empty {
+  color: #94a3b8;
+  font-size: 0.86rem;
+  font-style: italic;
+  padding: 6px 0;
+}

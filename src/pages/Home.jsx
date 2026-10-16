@@ -1,6 +1,6 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { MapPin, Phone, Mail, Wifi, Coffee, Shield, Wind, Camera, Instagram } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { MapPin, Phone, Mail, Wifi, Coffee, Shield, Wind, Camera, Instagram, Check } from 'lucide-react';
 import BookingForm from '../components/BookingForm';
 import BookingModal from '../components/BookingModal';
 
@@ -46,6 +46,20 @@ const VideoPlayer = ({ src }) => {
 };
 
 const Home = () => {
+    const location = useLocation();
+
+    useEffect(() => {
+        if (location.hash) {
+            const id = location.hash.replace('#', '');
+            const el = document.getElementById(id);
+            if (el) {
+                setTimeout(() => {
+                    el.scrollIntoView({ behavior: 'smooth' });
+                }, 150);
+            }
+        }
+    }, [location]);
+
     return (
         <div className="home">
             <BookingModal />
@@ -128,57 +142,57 @@ const Home = () => {
                     <div className="grid-3">
                         <div className="glass-card">
                             <h3 className="mb-4" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><Shield color="var(--primary)" /> Essential & Comfort</h3>
-                            <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
-                                <li>✓ Spotlessly clean rooms & bathrooms</li>
-                                <li>✓ 24/7 hot water</li>
-                                <li>✓ High-speed WiFi</li>
-                                <li>✓ Comfortable beds with fresh linens</li>
-                                <li>✓ Daily housekeeping</li>
+                            <ul style={{ listStyle: 'none', paddingLeft: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Spotlessly clean rooms & bathrooms</li>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> 24/7 hot water</li>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> High-speed WiFi</li>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Comfortable beds with fresh linens</li>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Daily housekeeping</li>
                             </ul>
                         </div>
                         <div className="glass-card">
                             <h3 className="mb-4" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><Wind color="var(--primary)" /> Nature & Views</h3>
-                            <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
-                                <li>✓ Balcony with tea garden / valley views</li>
-                                <li>✓ Quiet, peaceful surroundings</li>
-                                <li>✓ Private sit-out area</li>
-                                <li>✓ Silent stay policy</li>
+                            <ul style={{ listStyle: 'none', paddingLeft: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Balcony with tea garden / valley views</li>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Quiet, peaceful surroundings</li>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Private sit-out area</li>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Silent stay policy</li>
                             </ul>
                         </div>
                         <div className="glass-card">
                             <h3 className="mb-4" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><Coffee color="var(--primary)" /> Kerala Culture</h3>
-                            <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
-                                <li>✓ Traditional Kerala breakfast</li>
-                                <li>✓ Authentic home-cooked meals (on request)</li>
-                                <li>✓ Local tea tasting guidance</li>
-                                <li>✓ Plantation walk guidance</li>
+                            <ul style={{ listStyle: 'none', paddingLeft: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Traditional Kerala breakfast</li>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Authentic home-cooked meals (on request)</li>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Local tea tasting guidance</li>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Plantation walk guidance</li>
                             </ul>
                         </div>
                         <div className="glass-card">
                             <h3 className="mb-4" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><Shield color="var(--primary)" /> Convenience & Safety</h3>
-                            <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
-                                <li>✓ Free parking</li>
-                                <li>✓ CCTV-secured property</li>
-                                <li>✓ Power backup / inverter</li>
-                                <li>✓ On-call travel support</li>
+                            <ul style={{ listStyle: 'none', paddingLeft: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Free parking</li>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> CCTV-secured property</li>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Power backup / inverter</li>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> On-call travel support</li>
                             </ul>
                         </div>
                         <div className="glass-card">
                             <h3 className="mb-4" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><Camera color="var(--primary)" /> Outdoor & Experiences</h3>
-                            <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
-                                <li>✓ Garden space</li>
-                                <li>✓ Bonfire (on request)</li>
-                                <li>✓ Guided trekking arrangements</li>
-                                <li>✓ Pickup/drop assistance</li>
+                            <ul style={{ listStyle: 'none', paddingLeft: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Garden space</li>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Bonfire (on request)</li>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Guided trekking arrangements</li>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Pickup/drop assistance</li>
                             </ul>
                         </div>
                         <div className="glass-card">
                             <h3 className="mb-4" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><Wifi color="var(--primary)" /> Room Amenities</h3>
-                            <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
-                                <li>✓ Tea/coffee kettle</li>
-                                <li>✓ Basic toiletries</li>
-                                <li>✓ Wardrobe / luggage space</li>
-                                <li>✓ No-mosquito environment</li>
+                            <ul style={{ listStyle: 'none', paddingLeft: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Tea/coffee kettle</li>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Basic toiletries</li>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> Wardrobe / luggage space</li>
+                                <li style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Check size={16} color="var(--primary)" style={{ flexShrink: 0 }} /> No-mosquito environment</li>
                             </ul>
                         </div>
                     </div>
@@ -317,7 +331,6 @@ const Home = () => {
                 </div>
                 <div className="text-center mt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '20px' }}>
                     <p>&copy; 2025 Krish Homestays. All rights reserved.</p>
-                    <Link to="/admin" style={{ color: 'rgba(255,255,255,0.2)', fontSize: '0.8rem', textDecoration: 'none', marginLeft: '10px' }}>Admin</Link>
                 </div>
             </footer>
         </div >

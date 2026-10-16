@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import Swal from 'sweetalert2';
+import { RefreshCw, Download, Mail } from 'lucide-react';
+import API_URL from '../config';
 
 function generateBookingId() {
     const date = new Date();
@@ -96,7 +98,7 @@ export default function InvoiceGenerator() {
         if (!validateForm()) return;
         setSending(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/send-receipt`, {
+            const res = await fetch(`${API_URL}/api/send-receipt`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(getBookingPayload()),
@@ -118,7 +120,7 @@ export default function InvoiceGenerator() {
         if (!validateForm()) return;
         setDownloading(true);
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/generate-receipt`, {
+            const res = await fetch(`${API_URL}/api/generate-receipt`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(getBookingPayload()),
@@ -174,10 +176,10 @@ export default function InvoiceGenerator() {
                             <button
                                 type="button"
                                 onClick={() => setForm(f => ({ ...f, booking_id: generateBookingId() }))}
-                                style={styles.btnRegenerate}
+                                style={{ ...styles.btnRegenerate, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                                 title="Generate new ID"
                             >
-                                ↻
+                                <RefreshCw size={14} />
                             </button>
                         </div>
                     </div>
@@ -292,16 +294,18 @@ export default function InvoiceGenerator() {
                         <button
                             onClick={handleDownloadPDF}
                             disabled={downloading}
-                            style={{ ...styles.btnOutline, opacity: downloading ? 0.6 : 1 }}
+                            style={{ ...styles.btnOutline, opacity: downloading ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                         >
-                            {downloading ? 'Generating…' : '⬇ Download PDF'}
+                            <Download size={16} />
+                            {downloading ? 'Generating…' : 'Download PDF'}
                         </button>
                         <button
                             onClick={handleSendEmail}
                             disabled={sending}
-                            style={{ ...styles.btnPrimary, opacity: sending ? 0.6 : 1 }}
+                            style={{ ...styles.btnPrimary, opacity: sending ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                         >
-                            {sending ? 'Sending…' : '✉ Send via Email'}
+                            <Mail size={16} />
+                            {sending ? 'Sending…' : 'Send via Email'}
                         </button>
                     </div>
                 </div>

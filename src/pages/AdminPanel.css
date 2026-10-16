@@ -22,9 +22,13 @@
   margin-top: 10px;
   cursor: pointer;
   color: #fff;
-  padding: 8px 12px;
+  padding: 10px 12px;
   border-radius: 6px;
   transition: background 0.2s, color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
 }
 
 .sidebar-item:hover {
@@ -38,8 +42,108 @@
 
 .admin-content {
   flex: 1;
-  padding: 30px;
+  padding: 24px 30px;
   overflow-x: hidden;
+}
+
+/* Admin Top Menu Bar */
+.admin-top-navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #ffffff;
+  padding: 14px 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  margin-bottom: 24px;
+  border: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.admin-top-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-page-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  font-family: 'Playfair Display', serif;
+}
+
+.admin-top-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-top-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.admin-top-nav-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.admin-top-nav-btn.active {
+  background: #1e293b;
+  color: #fff;
+  border-color: #1e293b;
+}
+
+.admin-action-btn-site {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  background: #2C5F2D;
+  color: #fff;
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+.admin-action-btn-site:hover {
+  background: #234c24;
+  color: #fff;
+}
+
+.admin-action-btn-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.admin-action-btn-logout:hover {
+  background: #fecaca;
 }
 
 .sidebar-header {
@@ -102,6 +206,21 @@
   
   .admin-content {
     padding: 15px;
+  }
+  
+  .admin-top-navbar {
+    padding: 12px 14px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .admin-top-left {
+    justify-content: center;
+    text-align: center;
+  }
+  
+  .admin-top-right {
+    justify-content: center;
   }
   
   .invoice-card {

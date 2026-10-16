@@ -36,6 +36,14 @@
     color: white !important;
 }
 
+.react-calendar__tile--active div,
+.react-calendar__tile--rangeStart div,
+.react-calendar__tile--rangeEnd div,
+.react-calendar__tile--rangeBothEnds div {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
 .react-calendar__tile--now {
     background: var(--secondary) !important;
     color: white !important;
