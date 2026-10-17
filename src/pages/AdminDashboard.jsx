@@ -40,18 +40,33 @@ const AdminDashboard = () => {
         }
     };
 
+    const parseLocalDate = (dateVal) => {
+        if (!dateVal) return null;
+        if (dateVal instanceof Date) {
+            const d = new Date(dateVal);
+            d.setHours(0, 0, 0, 0);
+            return d;
+        }
+        const parts = String(dateVal).split('T')[0].split('-');
+        if (parts.length === 3) {
+            return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 0, 0, 0, 0);
+        }
+        const d = new Date(dateVal);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    };
+
     const getBookedInfoForDate = (date) => {
         if (!date) return null;
-        const d = new Date(date);
-        d.setHours(0, 0, 0, 0);
+        const d = parseLocalDate(date);
+        if (!d) return null;
         const dateStr = format(d, 'yyyy-MM-dd');
 
         // Check bookedRanges (website, airbnb, mmt)
         for (const b of (calendarData.bookedRanges || [])) {
-            const start = new Date(b.start);
-            const end = new Date(b.end);
-            start.setHours(0, 0, 0, 0);
-            end.setHours(0, 0, 0, 0);
+            const start = parseLocalDate(b.start);
+            const end   = parseLocalDate(b.end);
+            if (!start || !end) continue;
             if (d >= start && d < end) {
                 return {
                     isBooked: true,

@@ -128,9 +128,18 @@ const CheckoutForm = ({ bookingData, onPaymentSuccess, onCancel }) => {
     const [processing, setProcessing] = useState(false);
     const [error, setError] = useState(null);
 
-    const roomLabel = bookingData.room_type === 'partial'   ? 'Excluding one room • ₹5,000/night'
-        : bookingData.room_type === 'remaining' ? 'Remaining room • ₹2,000/night'
-        : 'Full villa • ₹7,000/night';
+    const roomNights = (() => {
+        if (!bookingData.check_in_date || !bookingData.check_out_date) return 1;
+        const s = new Date(bookingData.check_in_date);
+        const e = new Date(bookingData.check_out_date);
+        const diff = Math.round((e - s) / (1000 * 60 * 60 * 24));
+        return diff > 0 ? diff : 1;
+    })();
+    const ratePerNight = Math.round(Number(bookingData.total_amount || 0) / roomNights);
+    const roomTypeTitle = bookingData.room_type === 'partial' ? 'Excluding one room'
+        : bookingData.room_type === 'remaining' ? 'Remaining room'
+        : 'Full villa';
+    const roomLabel = `${roomTypeTitle} • ₹${ratePerNight.toLocaleString('en-IN')}/night`;
 
     const handlePayment = async () => {
         setProcessing(true);
@@ -326,12 +335,30 @@ const BookingForm = () => {
     }, [booking_id]);
 
     // ─── Date helpers ──────────────────────────────────────────────
+    const parseLocalDate = (dateVal) => {
+        if (!dateVal) return null;
+        if (dateVal instanceof Date) {
+            const d = new Date(dateVal);
+            d.setHours(0, 0, 0, 0);
+            return d;
+        }
+        const parts = String(dateVal).split('T')[0].split('-');
+        if (parts.length === 3) {
+            return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 0, 0, 0, 0);
+        }
+        const d = new Date(dateVal);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    };
+
     // Get all bookedRanges covering a date
     const rangesOnDate = (date) => {
-        return calendarData.bookedRanges.filter(range => {
-            const start = new Date(range.start); start.setHours(0, 0, 0, 0);
-            const end   = new Date(range.end);   end.setHours(0, 0, 0, 0);
-            const d     = new Date(date);         d.setHours(0, 0, 0, 0);
+        const d = parseLocalDate(date);
+        if (!d) return [];
+        return (calendarData.bookedRanges || []).filter(range => {
+            const start = parseLocalDate(range.start);
+            const end   = parseLocalDate(range.end);
+            if (!start || !end) return false;
             return d >= start && d < end;
         });
     };
@@ -505,21 +532,33 @@ const BookingForm = () => {
         isRangeUnavailable(checkInDate, checkOutDate, formData.room_type));
 
     // ─── Pricing ───────────────────────────────────────────────────
-    const getPriceForDate = (date) => {
-        if (formData.room_type === 'remaining') {
+    const getPriceForDate = (date, roomTypeOverride = formData.room_type) => {
+        if (roomTypeOverride === 'remaining') {
             return ROOM_PRICE.remaining; // ₹2000/night for remaining room
         }
-        const customPrice = calendarData.rules[format(date, 'yyyy-MM-dd')]?.price;
-        return customPrice || ROOM_PRICE[formData.room_type] || 7000;
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const customPrice = calendarData.rules?.[dateStr]?.price;
+        if (customPrice !== undefined && customPrice !== null && customPrice !== '') {
+            const numPrice = Number(customPrice);
+            if (!isNaN(numPrice)) {
+                if (roomTypeOverride === 'partial') {
+                    return numPrice < ROOM_PRICE.partial 
+                        ? numPrice 
+                        : Math.round(numPrice * (ROOM_PRICE.partial / ROOM_PRICE.full));
+                }
+                return numPrice;
+            }
+        }
+        return ROOM_PRICE[roomTypeOverride] || 7000;
     };
 
-    const calculateTotal = () => {
+    const calculateTotal = (roomTypeOverride = formData.room_type) => {
         if (!checkInDate || !checkOutDate) return 0;
         let total = 0;
         let current = new Date(checkInDate); current.setHours(0, 0, 0, 0);
         const end = new Date(checkOutDate); end.setHours(0, 0, 0, 0);
         while (current < end) {
-            total += getPriceForDate(current);
+            total += getPriceForDate(current, roomTypeOverride);
             current.setDate(current.getDate() + 1);
         }
         return total;
@@ -1012,15 +1051,72 @@ const BookingForm = () => {
     })();
 
     const totalAmount   = calculateTotal();
-    const pricePerNight = getPriceForDate(checkInDate || new Date());
+    const pricePerNight = nights > 0 ? Math.round(totalAmount / nights) : getPriceForDate(checkInDate || new Date());
 
     const datesSelected = !!(checkInDate && checkOutDate);
     const rangeHasPartial = datesSelected && doesRangeHavePartial(checkInDate, checkOutDate);
     const partialAllowed  = canSelectPartial(formData.adults, formData.children);
 
+    const hasCustomPriceRule = (() => {
+        if (!checkInDate) return false;
+        const checkDateRule = (d) => {
+            const dStr = format(d, 'yyyy-MM-dd');
+            const p = calendarData.rules?.[dStr]?.price;
+            if (p !== undefined && p !== null && p !== '') {
+                const num = Number(p);
+                return !isNaN(num);
+            }
+            return false;
+        };
+
+        if (checkOutDate) {
+            let curr = new Date(checkInDate); curr.setHours(0, 0, 0, 0);
+            const end = new Date(checkOutDate); end.setHours(0, 0, 0, 0);
+            while (curr < end) {
+                if (checkDateRule(curr)) return true;
+                curr.setDate(curr.getDate() + 1);
+            }
+            return false;
+        }
+
+        return checkDateRule(checkInDate);
+    })();
+
+    const getRoomOptionRate = (roomType) => {
+        if (datesSelected && nights > 0) {
+            const total = calculateTotal(roomType);
+            return Math.round(total / nights);
+        }
+        if (checkInDate) {
+            return getPriceForDate(checkInDate, roomType);
+        }
+        return ROOM_PRICE[roomType] || 7000;
+    };
+
+    const getRoomOptionLabel = (roomType) => {
+        const title = roomType === 'partial' 
+            ? 'Excluding one room' 
+            : roomType === 'remaining' 
+            ? 'Remaining room' 
+            : 'Full villa';
+
+        if (hasCustomPriceRule) {
+            return title;
+        }
+
+        const rate = getRoomOptionRate(roomType);
+        return `${title} — ₹${rate.toLocaleString('en-IN')}/night`;
+    };
+
     const getTileContent = ({ date, view }) => {
         if (view !== 'month') return null;
-        if (isDateFullyBooked(date)) return null;
+        if (isDateFullyBooked(date)) {
+            return (
+                <div style={{ marginTop: '2px' }}>
+                    <span style={{ color: '#dc2626', fontSize: '11px', fontWeight: '600' }}>Booked</span>
+                </div>
+            );
+        }
         const partial  = isDatePartiallyBooked(date);
         const customPrice = calendarData.rules[format(date, 'yyyy-MM-dd')]?.price;
         return (
@@ -1047,6 +1143,7 @@ const BookingForm = () => {
         };
 
         if (remainingStatus?.isRemainingEligible) {
+            const remainingRate = getRoomOptionRate('remaining');
             const extensionText = (remainingStatus.extendedBefore && remainingStatus.extendedAfter)
                 ? ' (Includes 1-day check-in & check-out extension)'
                 : remainingStatus.extendedBefore
@@ -1059,11 +1156,11 @@ const BookingForm = () => {
                 <div className="form-group">
                     <label>Room Option</label>
                     <select value="remaining" disabled style={{ opacity: 0.9, fontWeight: 500 }}>
-                        <option value="remaining">Remaining room — ₹2,000/night</option>
+                        <option value="remaining">{getRoomOptionLabel('remaining')}</option>
                     </select>
                     <div style={{ ...infoStyle, marginTop: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Info size={16} color="#2563eb" style={{ flexShrink: 0 }} />
-                        <span>Selected dates have a partial booking. Remaining room is available for 1–3 guests at ₹2,000/night.{extensionText}</span>
+                        <span>Selected dates have a partial booking. Remaining room is available for 1–3 guests at ₹{remainingRate.toLocaleString('en-IN')}/night.{extensionText}</span>
                     </div>
                 </div>
             );
@@ -1079,8 +1176,8 @@ const BookingForm = () => {
                         disabled={!datesSelected}
                         style={{ opacity: datesSelected ? 1 : 0.5 }}
                     >
-                        <option value="partial">Excluding one room — ₹5,000/night</option>
-                        <option value="full">Full villa — ₹7,000/night</option>
+                        <option value="partial">{getRoomOptionLabel('partial')}</option>
+                        <option value="full">{getRoomOptionLabel('full')}</option>
                     </select>
                     {!datesSelected && (
                         <p style={{ fontSize: '12px', color: '#aaa', margin: '4px 0 0 0' }}>
@@ -1096,7 +1193,7 @@ const BookingForm = () => {
             <div className="form-group">
                 <label>Room Option</label>
                 <select value="full" disabled style={{ opacity: 0.8 }}>
-                    <option value="full">Full villa — ₹7,000/night</option>
+                    <option value="full">{getRoomOptionLabel('full')}</option>
                 </select>
                 <div style={{ ...infoStyle, marginTop: '8px', color: '#555', background: '#f5f5f5', border: '1px solid #ddd' }}>
                     Your group size requires the full villa.
@@ -1272,8 +1369,9 @@ const BookingForm = () => {
                                         <strong>₹{totalAmount}</strong>
                                     </div>
                                     {formData.room_type === 'partial' && (
-                                        <p style={{ fontSize: '12px', color: '#888', margin: '6px 0 0 0' }}>
-                                            ℹ️ Excluding one room — remaining room may still be booked by others
+                                        <p style={{ fontSize: '12px', color: '#888', margin: '6px 0 0 0', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <Info size={13} style={{ flexShrink: 0 }} />
+                                            <span>Excluding one room — remaining room may still be booked by others</span>
                                         </p>
                                     )}
                                 </div>

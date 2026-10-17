@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Eye, Pencil, RefreshCw, Plus, AlertTriangle } from 'lucide-react';
+import { Trash2, Eye, Pencil, RefreshCw, Plus, AlertTriangle } from 'lucide-react';
 import './BookingList.css';
 import Swal from 'sweetalert2';
 import API_URL from '../config';
@@ -176,6 +176,48 @@ export default function BookingList() {
     const closeModal = () => {
         setShowModal(false);
         setSelectedRow(null);
+    };
+
+    const handleDeleteBooking = (booking) => {
+        const bookingId = booking['Booking Id'] || booking['Booking ID'] || booking.booking_id;
+        const guestName = booking['Guest Name'] || booking.guest_name || 'this guest';
+
+        Swal.fire({
+            title: 'Delete Booking?',
+            text: `Are you sure you want to delete booking ${bookingId} for ${guestName}? This will also release any reserved dates in the calendar.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Yes, delete it'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    const res = await fetch(`${API_URL}/api/admin/delete-booking`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ booking_id: bookingId })
+                    });
+                    const data = await parseApiResponse(res, 'Failed to delete booking');
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Deleted',
+                        text: `Booking ${bookingId} has been deleted.`,
+                        confirmButtonColor: '#2C5F2D'
+                    });
+                    fetchBookings();
+                } catch (err) {
+                    console.error('Error deleting booking:', err);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: err.message || 'Failed to delete booking.',
+                        confirmButtonColor: '#2C5F2D'
+                    });
+                }
+            }
+        });
     };
 
     const handleUpdate = async () => {
@@ -413,6 +455,15 @@ export default function BookingList() {
                                     <td style={td}>{b['source'] || '—'}</td>
                                     <td style={td}>
                                         <div className="action-buttons-group">
+                                            <button
+                                                type="button"
+                                                className="action-icon-btn action-delete-btn"
+                                                title="Delete Booking"
+                                                aria-label="Delete Booking"
+                                                onClick={() => handleDeleteBooking(b)}
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
                                             <button
                                                 type="button"
                                                 className="action-icon-btn action-view-btn"

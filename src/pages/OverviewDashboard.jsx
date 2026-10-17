@@ -11,7 +11,8 @@ import {
   CheckCircle2,
   ChevronRight,
   X,
-  XCircle
+  XCircle,
+  CalendarClock
 } from 'lucide-react';
 import { format, isSameDay, addDays } from 'date-fns';
 import API_URL from '../config';
@@ -23,7 +24,6 @@ let dashboardCache = null;
 
 export default function OverviewDashboard({ onNavigate, isActive = true }) {
   const [bookings, setBookings] = useState(() => dashboardCache?.bookings || []);
-  const [rules, setRules] = useState(() => dashboardCache?.rules || []);
   const [loading, setLoading] = useState(() => !dashboardCache);
   const [filterTab, setFilterTab] = useState('next4'); // 'next4' | 'today' | 'tomorrow' | 'next7' | 'all'
   const [lastUpdated, setLastUpdated] = useState(() => dashboardCache?.lastUpdated || new Date());
@@ -34,22 +34,18 @@ export default function OverviewDashboard({ onNavigate, isActive = true }) {
       setLoading(true);
     }
     try {
-      const [bookingsRes, rulesRes] = await Promise.all([
-        fetch(`${API_URL}/api/admin/bookings`).then(r => parseApiResponse(r, 'Failed to fetch bookings')),
-        fetch(`${API_URL}/api/admin/calendar-rules`).then(r => parseApiResponse(r, 'Failed to fetch rules')).catch(() => [])
-      ]);
+      const bookingsRes = await fetch(`${API_URL}/api/admin/bookings`)
+        .then(r => parseApiResponse(r, 'Failed to fetch bookings'))
+        .catch(() => []);
       const nextBookings = Array.isArray(bookingsRes) ? bookingsRes : [];
-      const nextRules = Array.isArray(rulesRes) ? rulesRes : [];
       const nextDate = new Date();
 
       dashboardCache = {
         bookings: nextBookings,
-        rules: nextRules,
         lastUpdated: nextDate
       };
 
       setBookings(nextBookings);
-      setRules(nextRules);
       setLastUpdated(nextDate);
     } catch (err) {
       console.error('Error fetching dashboard overview data:', err);
@@ -74,7 +70,10 @@ export default function OverviewDashboard({ onNavigate, isActive = true }) {
 
   // ── Metrics Calculation ───────────────────────────────────────────
   const confirmedBookings = bookings.filter(b => b.status === 'confirmed' || b.status === 'booked');
-  const activeEnquiries = bookings.filter(b => b.status === 'enquiry');
+  const activeEnquiries = bookings.filter(b => {
+    const s = String(b.status || b['Status'] || '').toLowerCase();
+    return s.includes('enqu');
+  });
   const cancelledBookings = bookings.filter(b => b.status === 'cancelled');
 
   const totalRevenue = confirmedBookings.reduce((sum, b) => {
@@ -226,7 +225,22 @@ export default function OverviewDashboard({ onNavigate, isActive = true }) {
 
       {/* ── METRICS OVERVIEW CARDS ── */}
       <div className="metrics-grid">
-        {/* Card 1: Confirmed Bookings */}
+        {/* Card 1: Booking Enquiries */}
+        <div className="metric-card amber">
+          <div className="metric-card-content">
+            <div className="metric-title">Booking Enquiries</div>
+            {loading ? (
+              <div className="metric-skeleton-shimmer"></div>
+            ) : (
+              <div className="metric-value">{activeEnquiries.length}</div>
+            )}
+          </div>
+          <div className="metric-icon-box">
+            <CalendarClock size={24} />
+          </div>
+        </div>
+
+        {/* Card 2: Confirmed Bookings */}
         <div className="metric-card emerald">
           <div className="metric-card-content">
             <div className="metric-title">Confirmed Bookings</div>
@@ -241,7 +255,7 @@ export default function OverviewDashboard({ onNavigate, isActive = true }) {
           </div>
         </div>
 
-        {/* Card 2: Total Revenue */}
+        {/* Card 3: Total Revenue */}
         <div className="metric-card blue">
           <div className="metric-card-content">
             <div className="metric-title">Total Revenue</div>
@@ -256,7 +270,7 @@ export default function OverviewDashboard({ onNavigate, isActive = true }) {
           </div>
         </div>
 
-        {/* Card 3: Total Guests */}
+        {/* Card 4: Total Guests */}
         <div className="metric-card purple">
           <div className="metric-card-content">
             <div className="metric-title">Total Guests</div>
@@ -268,21 +282,6 @@ export default function OverviewDashboard({ onNavigate, isActive = true }) {
           </div>
           <div className="metric-icon-box">
             <Users size={24} />
-          </div>
-        </div>
-
-        {/* Card 5: Calendar Rules */}
-        <div className="metric-card rose">
-          <div className="metric-card-content">
-            <div className="metric-title">Calendar Rules</div>
-            {loading ? (
-              <div className="metric-skeleton-shimmer"></div>
-            ) : (
-              <div className="metric-value">{rules.length}</div>
-            )}
-          </div>
-          <div className="metric-icon-box">
-            <CalendarRange size={24} />
           </div>
         </div>
       </div>
