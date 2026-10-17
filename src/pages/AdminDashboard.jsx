@@ -13,12 +13,15 @@ const AdminDashboard = () => {
     const { token, setToken } = useContext(authContext);
 
     const [dateRange, setDateRange] = useState(null);
+    const [selectionStage, setSelectionStage] = useState('idle'); // 'idle' | 'start_selected' | 'completed'
     const [calendarData, setCalendarData] = useState({ bookedRanges: [], rules: {} });
-    const [price, setPrice] = useState(7000);
+    const [priceFull, setPriceFull] = useState(7000);
+    const [pricePartial, setPricePartial] = useState(5000);
     const [status, setStatus] = useState('available');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
     const lastSelectedDateStr = useRef(null);
+    const lastClickRef = useRef({ dateStr: null, time: 0 });
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -38,6 +41,13 @@ const AdminDashboard = () => {
         } catch (err) {
             console.error('Failed to fetch calendar data:', err);
         }
+    };
+
+    const isSameDay = (d1, d2) => {
+        if (!d1 || !d2) return false;
+        const a = new Date(d1); a.setHours(0, 0, 0, 0);
+        const b = new Date(d2); b.setHours(0, 0, 0, 0);
+        return a.getTime() === b.getTime();
     };
 
     const parseLocalDate = (dateVal) => {
@@ -143,19 +153,32 @@ const AdminDashboard = () => {
         };
     };
 
-    // Auto-populate price/status from existing rule when selecting a new date/range
+    // Auto-populate prices/status from existing rule when selecting a new date/range
     useEffect(() => {
         if (dateRange && dateRange[0]) {
             const dateStr = format(dateRange[0], 'yyyy-MM-dd');
-            // Only auto-populate when the start date actually changes to avoid wiping typed input when picking range end
+            // Only auto-populate when the start date actually changes
             if (lastSelectedDateStr.current !== dateStr) {
                 lastSelectedDateStr.current = dateStr;
                 const rule = calendarData.rules?.[dateStr];
-                if (rule?.price) {
-                    setPrice(rule.price);
+
+                // Full Villa price
+                if (rule?.price !== undefined && rule?.price !== null && rule?.price !== '') {
+                    setPriceFull(rule.price);
                 } else {
-                    setPrice(7000);
+                    setPriceFull(7000);
                 }
+
+                // Exclude One Room (partial villa) price
+                if (rule?.partial_price !== undefined && rule?.partial_price !== null && rule?.partial_price !== '') {
+                    setPricePartial(rule.partial_price);
+                } else if (rule?.price) {
+                    const fp = Number(rule.price);
+                    setPricePartial(fp < 5000 ? fp : Math.round(fp * (5000 / 7000)));
+                } else {
+                    setPricePartial(5000);
+                }
+
                 if (rule?.status) {
                     setStatus(rule.status);
                 } else {
@@ -165,10 +188,60 @@ const AdminDashboard = () => {
         } else {
             lastSelectedDateStr.current = null;
         }
-    }, [dateRange]);
+    }, [dateRange, calendarData]);
+
+    const handleDayClick = (clickedDate, event) => {
+        const todayDate = new Date();
+        todayDate.setHours(0, 0, 0, 0);
+        const d = new Date(clickedDate);
+        d.setHours(0, 0, 0, 0);
+        if (d < todayDate) return;
+
+        const dStr = format(d, 'yyyy-MM-dd');
+        const now = Date.now();
+        const prev = lastClickRef.current;
+        const timeDiff = now - prev.time;
+        const isSameAsLastClick = prev.dateStr === dStr;
+
+        // Detect double click: clicked same date quickly (< 380ms) OR native event.detail === 2
+        const isDoubleClick = (event && event.detail === 2) || (isSameAsLastClick && timeDiff < 380);
+
+        // Update click ref
+        lastClickRef.current = { dateStr: dStr, time: now };
+
+        // Case 1: Double click -> select single day [d, d]
+        if (isDoubleClick) {
+            setDateRange([d, d]);
+            setSelectionStage('completed');
+            return;
+        }
+
+        // Case 2: Click same date after some seconds (NOT double click) -> UNSELECT that date
+        if (dateRange && (isSameDay(d, dateRange[0]) || (dateRange[1] && isSameDay(d, dateRange[1])))) {
+            if (timeDiff >= 380) {
+                setDateRange(null);
+                setSelectionStage('idle');
+                lastClickRef.current = { dateStr: null, time: 0 };
+                return;
+            }
+        }
+
+        // Case 3: In 'start_selected' stage and user clicks a DIFFERENT date -> set "to" date (range selection)
+        if (selectionStage === 'start_selected' && dateRange && dateRange[0] && !isSameDay(d, dateRange[0])) {
+            const start = d < dateRange[0] ? d : dateRange[0];
+            const end = d < dateRange[0] ? dateRange[0] : d;
+            setDateRange([start, end]);
+            setSelectionStage('completed');
+            return;
+        }
+
+        // Case 4: First click (from idle or completed state) -> select "from" date
+        setDateRange([d, d]);
+        setSelectionStage('start_selected');
+    };
 
     const handleUpdate = async () => {
-        if (!dateRange) return;
+        if (!dateRange || !dateRange[0]) return;
 
         const details = getSelectedRangeDetails();
         if (!details) return;
@@ -181,15 +254,32 @@ const AdminDashboard = () => {
         setLoading(true);
         setMessage('');
 
-        const numericPrice = Number(price);
-        const finalPrice = !isNaN(numericPrice) && numericPrice > 0 ? numericPrice : 7000;
+        const numericFullPrice = Number(priceFull);
+        const finalFullPrice = !isNaN(numericFullPrice) && numericFullPrice > 0 ? numericFullPrice : 7000;
 
-        // Only update dates that are NOT already booked
-        const datesToUpdate = details.availableDates.map(item => ({
-            date: item.date,
-            price: finalPrice,
-            status: status
-        }));
+        const numericPartialPrice = Number(pricePartial);
+        const finalPartialPrice = !isNaN(numericPartialPrice) && numericPartialPrice > 0 ? numericPartialPrice : 5000;
+
+        // Create both full villa and partial villa rules for all available dates
+        const datesToUpdate = [];
+        details.availableDates.forEach(item => {
+            // Full villa rule
+            datesToUpdate.push({
+                date: item.date,
+                price: finalFullPrice,
+                status: status,
+                unit: 'full_villa',
+                room_type: 'full'
+            });
+            // Exclude one room (partial villa) rule
+            datesToUpdate.push({
+                date: item.date,
+                price: finalPartialPrice,
+                status: status,
+                unit: 'half_villa',
+                room_type: 'partial'
+            });
+        });
 
         try {
             const res = await fetch(`${API_URL}/api/admin/rules`, {
@@ -200,9 +290,9 @@ const AdminDashboard = () => {
 
             const data = await parseApiResponse(res, 'Update failed');
             if (details.hasBooked) {
-                setMessage(`Updated ${datesToUpdate.length} available date(s). ${details.bookedDates.length} booked date(s) were protected and unchanged.`);
+                setMessage(`Updated ${details.availableDates.length} available date(s). ${details.bookedDates.length} booked date(s) were protected and unchanged.`);
             } else {
-                setMessage(data.message || 'Updated successfully!');
+                setMessage(data.message || `Successfully updated ${details.availableDates.length} date(s)!`);
             }
             await fetchData(); // Refresh calendar data
         } catch (err) {
@@ -210,6 +300,32 @@ const AdminDashboard = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const getTileClassName = ({ date, view }) => {
+        if (view !== 'month' || !dateRange || !dateRange[0]) return '';
+        const d = new Date(date); d.setHours(0, 0, 0, 0);
+        const s = new Date(dateRange[0]); s.setHours(0, 0, 0, 0);
+        const e = dateRange[1] ? new Date(dateRange[1]) : s;
+        e.setHours(0, 0, 0, 0);
+
+        const dTime = d.getTime();
+        const sTime = s.getTime();
+        const eTime = e.getTime();
+
+        if (dTime === sTime && dTime === eTime) {
+            return 'cal-selected-single';
+        }
+        if (dTime === sTime) {
+            return 'cal-selected-start';
+        }
+        if (dTime === eTime) {
+            return 'cal-selected-end';
+        }
+        if (dTime > sTime && dTime < eTime) {
+            return 'cal-selected-between';
+        }
+        return '';
     };
 
     const getTileContent = ({ date, view }) => {
@@ -220,31 +336,28 @@ const AdminDashboard = () => {
 
         if (bookedInfo) return <div style={{ color: '#dc2626', fontWeight: '700', fontSize: '0.72rem' }}>Booked</div>;
         if (rule?.status === 'blocked') return <div style={{ color: '#6b7280', fontWeight: '600', fontSize: '0.72rem' }}>Blocked</div>;
-        if (rule?.price) return <div style={{ color: '#16a34a', fontWeight: '600', fontSize: '0.72rem' }}>₹{rule.price}</div>;
-        return <div style={{ color: '#888', fontSize: '0.72rem' }}>₹7000</div>;
+        
+        const fullP = rule?.price ? Number(rule.price) : 7000;
+        const partP = rule?.partial_price 
+            ? Number(rule.partial_price) 
+            : (rule?.price ? (rule.price < 5000 ? rule.price : Math.round(Number(rule.price) * (5000 / 7000))) : 5000);
+        
+        const isCustom = !!(rule?.price || rule?.partial_price);
+
+        return (
+            <div style={{ fontSize: '0.7rem', lineHeight: '1.2', marginTop: '2px' }}>
+                <div style={{ color: isCustom ? '#16a34a' : '#475569', fontWeight: isCustom ? '700' : '600' }}>
+                    ₹{fullP}
+                </div>
+                <div style={{ color: isCustom ? '#0284c7' : '#94a3b8', fontSize: '0.62rem', fontWeight: isCustom ? '600' : '500' }}>
+                    ₹{partP}
+                </div>
+            </div>
+        );
     };
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
-    const handleDateRangeChange = (val) => {
-        if (!val) {
-            setDateRange(null);
-            return;
-        }
-        const todayDate = new Date();
-        todayDate.setHours(0, 0, 0, 0);
-        if (Array.isArray(val)) {
-            const start = val[0] < todayDate ? todayDate : val[0];
-            const end = val[1] ? (val[1] < start ? start : val[1]) : start;
-            setDateRange([start, end]);
-        } else if (val instanceof Date) {
-            const safe = val < todayDate ? todayDate : val;
-            setDateRange([safe, safe]);
-        } else {
-            setDateRange(val);
-        }
-    };
 
     return (
         <div className="container">
@@ -261,14 +374,24 @@ const AdminDashboard = () => {
                 <div className="grid-2">
                     <div className="calendar-section">
                         <Calendar
-                            selectRange={true}
-                            onChange={handleDateRangeChange}
+                            selectRange={false}
+                            onClickDay={handleDayClick}
                             value={dateRange}
                             tileContent={getTileContent}
+                            tileClassName={getTileClassName}
                             minDate={today}
                             tileDisabled={({ date }) => date < today}
                             className="custom-calendar"
                         />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.76rem', color: '#64748b', marginTop: '10px', padding: '6px 8px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '6px' }}>
+                            <div>
+                                <span style={{ fontWeight: '600', color: '#16a34a' }}>Top:</span> Full Villa &nbsp;|&nbsp; 
+                                <span style={{ fontWeight: '600', color: '#0284c7', marginLeft: '4px' }}>Bottom:</span> Exclude 1 Room
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                                Single click: range &nbsp;•&nbsp; Double click: 1 day &nbsp;•&nbsp; Click again: unselect
+                            </div>
+                        </div>
                     </div>
 
                     <div>
@@ -283,13 +406,20 @@ const AdminDashboard = () => {
                             return (
                                 <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                                     <div style={{ paddingBottom: '12px', marginBottom: '14px', borderBottom: '1px solid #e2e8f0' }}>
-                                        <p style={{ margin: 0, fontSize: '0.95rem', color: '#1e293b' }}>
-                                            <strong>Check-in:</strong> {format(dateRange[0], 'MMM dd, yyyy')} &nbsp;—&nbsp; 
-                                            <strong>Check-out:</strong> {dateRange[1] ? format(dateRange[1], 'MMM dd, yyyy') : format(dateRange[0], 'MMM dd, yyyy')}
-                                            <span style={{ marginLeft: '10px', fontSize: '0.8rem', color: '#64748b' }}>
-                                                ({allDates.length} day{allDates.length > 1 ? 's' : ''})
-                                            </span>
-                                        </p>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                                            <p style={{ margin: 0, fontSize: '0.95rem', color: '#1e293b' }}>
+                                                <strong>Check-in:</strong> {format(dateRange[0], 'MMM dd, yyyy')} &nbsp;—&nbsp; 
+                                                <strong>Check-out:</strong> {dateRange[1] ? format(dateRange[1], 'MMM dd, yyyy') : format(dateRange[0], 'MMM dd, yyyy')}
+                                                <span style={{ marginLeft: '10px', fontSize: '0.8rem', color: '#64748b' }}>
+                                                    ({allDates.length} day{allDates.length > 1 ? 's' : ''})
+                                                </span>
+                                            </p>
+                                            {selectionStage === 'start_selected' && (
+                                                <span style={{ fontSize: '0.74rem', background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '4px', fontWeight: '600' }}>
+                                                    From date selected — click another date for To date
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* CASE 1: ALL SELECTED DATES ARE ALREADY BOOKED */}
@@ -400,14 +530,15 @@ const AdminDashboard = () => {
                                             {allDates.length === 1 && allDates[0].rule ? (
                                                 <div style={{ fontSize: '0.8rem', color: '#15803d' }}>
                                                     Current Rule: Status: <strong>{allDates[0].rule.status}</strong>
-                                                    {allDates[0].rule.price && ` • Price: ₹${Number(allDates[0].rule.price).toLocaleString()}`}
+                                                    {allDates[0].rule.price && ` • Full Villa: ₹${Number(allDates[0].rule.price).toLocaleString()}`}
+                                                    {allDates[0].rule.partial_price && ` • Exclude 1 Room: ₹${Number(allDates[0].rule.partial_price).toLocaleString()}`}
                                                     {allDates[0].rule.reason && ` • Reason: ${allDates[0].rule.reason}`}
                                                 </div>
                                             ) : allDates.length > 1 ? (
                                                 <div style={{ fontSize: '0.8rem', color: '#15803d' }}>
-                                                    {allDates.some(d => d.rule?.price)
-                                                        ? `Current prices in range: ${allDates.map(d => `${d.date.slice(5)}: ₹${d.rule?.price ? Number(d.rule.price).toLocaleString() : '7,000'}`).join(', ')}`
-                                                        : `All ${allDates.length} selected dates currently use the default price (₹7,000 / night)`
+                                                    {allDates.some(d => d.rule?.price || d.rule?.partial_price)
+                                                        ? `Configuring rules for ${allDates.length} selected dates (some have custom pricing).`
+                                                        : `All ${allDates.length} selected dates currently use default rates (Full: ₹7,000, Exclude 1 Room: ₹5,000 / night).`
                                                     }
                                                 </div>
                                             ) : null}
@@ -417,18 +548,47 @@ const AdminDashboard = () => {
                                     {/* RULE INPUT FORM */}
                                     {!allBooked ? (
                                         <>
-                                            <div className="form-group">
-                                                <label style={{ fontWeight: '600', fontSize: '0.88rem' }}>Price per Night (₹)</label>
-                                                <input
-                                                    type="number"
-                                                    value={price}
-                                                    onChange={e => setPrice(e.target.value)}
-                                                />
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', marginBottom: '14px' }}>
+                                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                                    <label style={{ fontWeight: '600', fontSize: '0.88rem', color: '#1e293b', display: 'block', marginBottom: '6px' }}>
+                                                        Full Villa Price (₹)
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="100"
+                                                        value={priceFull}
+                                                        onChange={e => setPriceFull(e.target.value)}
+                                                        placeholder="7000"
+                                                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem', boxSizing: 'border-box' }}
+                                                    />
+                                                    <span style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '4px', display: 'block' }}>Default: ₹7,000 / night</span>
+                                                </div>
+
+                                                <div className="form-group" style={{ marginBottom: 0 }}>
+                                                    <label style={{ fontWeight: '600', fontSize: '0.88rem', color: '#1e293b', display: 'block', marginBottom: '6px' }}>
+                                                        Exclude One Room Price (₹)
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        step="100"
+                                                        value={pricePartial}
+                                                        onChange={e => setPricePartial(e.target.value)}
+                                                        placeholder="5000"
+                                                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem', boxSizing: 'border-box' }}
+                                                    />
+                                                    <span style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '4px', display: 'block' }}>Default: ₹5,000 / night</span>
+                                                </div>
                                             </div>
 
                                             <div className="form-group">
-                                                <label style={{ fontWeight: '600', fontSize: '0.88rem' }}>Status</label>
-                                                <select value={status} onChange={e => setStatus(e.target.value)}>
+                                                <label style={{ fontWeight: '600', fontSize: '0.88rem', color: '#1e293b', display: 'block', marginBottom: '6px' }}>Status</label>
+                                                <select 
+                                                    value={status} 
+                                                    onChange={e => setStatus(e.target.value)}
+                                                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem', boxSizing: 'border-box', background: '#fff' }}
+                                                >
                                                     <option value="available">Available</option>
                                                     <option value="blocked">Blocked (Maintenance / Personal)</option>
                                                     <option value="booked">Booked (Manual)</option>
@@ -439,13 +599,13 @@ const AdminDashboard = () => {
                                                 onClick={handleUpdate}
                                                 disabled={loading || availableDates.length === 0}
                                                 className="btn btn-primary mt-4"
-                                                style={{ width: '100%', fontWeight: '600' }}
+                                                style={{ width: '100%', fontWeight: '600', padding: '12px' }}
                                             >
                                                 {loading 
                                                     ? 'Updating...' 
                                                     : hasBooked 
                                                         ? `Update ${availableDates.length} Available Date${availableDates.length > 1 ? 's' : ''}` 
-                                                        : 'Update Selected Dates'}
+                                                        : `Update ${availableDates.length} Selected Date${availableDates.length > 1 ? 's' : ''}`}
                                             </button>
                                         </>
                                     ) : (

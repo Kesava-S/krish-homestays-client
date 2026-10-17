@@ -537,15 +537,28 @@ const BookingForm = () => {
             return ROOM_PRICE.remaining; // ₹2000/night for remaining room
         }
         const dateStr = format(date, 'yyyy-MM-dd');
-        const customPrice = calendarData.rules?.[dateStr]?.price;
-        if (customPrice !== undefined && customPrice !== null && customPrice !== '') {
-            const numPrice = Number(customPrice);
-            if (!isNaN(numPrice)) {
-                if (roomTypeOverride === 'partial') {
+        const rule = calendarData.rules?.[dateStr];
+
+        if (roomTypeOverride === 'partial') {
+            if (rule?.partial_price !== undefined && rule?.partial_price !== null && rule?.partial_price !== '') {
+                const numPartial = Number(rule.partial_price);
+                if (!isNaN(numPartial) && numPartial > 0) return numPartial;
+            }
+            if (rule?.price !== undefined && rule?.price !== null && rule?.price !== '') {
+                const numPrice = Number(rule.price);
+                if (!isNaN(numPrice)) {
                     return numPrice < ROOM_PRICE.partial 
                         ? numPrice 
                         : Math.round(numPrice * (ROOM_PRICE.partial / ROOM_PRICE.full));
                 }
+            }
+            return ROOM_PRICE.partial; // ₹5000 default
+        }
+
+        const customPrice = rule?.price;
+        if (customPrice !== undefined && customPrice !== null && customPrice !== '') {
+            const numPrice = Number(customPrice);
+            if (!isNaN(numPrice)) {
                 return numPrice;
             }
         }
@@ -1061,7 +1074,10 @@ const BookingForm = () => {
         if (!checkInDate) return false;
         const checkDateRule = (d) => {
             const dStr = format(d, 'yyyy-MM-dd');
-            const p = calendarData.rules?.[dStr]?.price;
+            const rule = calendarData.rules?.[dStr];
+            const p = formData.room_type === 'partial'
+                ? (rule?.partial_price ?? rule?.price)
+                : rule?.price;
             if (p !== undefined && p !== null && p !== '') {
                 const num = Number(p);
                 return !isNaN(num);

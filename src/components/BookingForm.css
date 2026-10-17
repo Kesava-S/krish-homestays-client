@@ -64,6 +64,33 @@
     background-color: #fdeea3 !important;
 }
 
+/* Custom Calendar Selection Classes */
+.custom-calendar .cal-selected-single,
+.custom-calendar .cal-selected-start,
+.custom-calendar .cal-selected-end {
+    background: #2C5F2D !important;
+    color: #ffffff !important;
+    border-radius: 8px !important;
+}
+
+.custom-calendar .cal-selected-single *,
+.custom-calendar .cal-selected-start *,
+.custom-calendar .cal-selected-end * {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
+.custom-calendar .cal-selected-between {
+    background: #dcfce7 !important;
+    color: #166534 !important;
+    border-radius: 2px !important;
+}
+
+.custom-calendar .cal-selected-between * {
+    color: #166534 !important;
+    font-weight: 600 !important;
+}
+
 .payment-details p {
     font-size: clamp(24px, 6vw, 30px);
 }
