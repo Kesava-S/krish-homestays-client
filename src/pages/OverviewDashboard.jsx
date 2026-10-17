@@ -18,24 +18,39 @@ import API_URL from '../config';
 import { parseApiResponse } from '../utils/apiHelper';
 import './OverviewDashboard.css';
 
-export default function OverviewDashboard({ onNavigate }) {
-  const [bookings, setBookings] = useState([]);
-  const [rules, setRules] = useState([]);
-  const [loading, setLoading] = useState(true);
+// Global in-memory cache to ensure instant loading when switching/redirecting from any page
+let dashboardCache = null;
+
+export default function OverviewDashboard({ onNavigate, isActive = true }) {
+  const [bookings, setBookings] = useState(() => dashboardCache?.bookings || []);
+  const [rules, setRules] = useState(() => dashboardCache?.rules || []);
+  const [loading, setLoading] = useState(() => !dashboardCache);
   const [filterTab, setFilterTab] = useState('next4'); // 'next4' | 'today' | 'tomorrow' | 'next7' | 'all'
-  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [lastUpdated, setLastUpdated] = useState(() => dashboardCache?.lastUpdated || new Date());
   const [selectedBooking, setSelectedBooking] = useState(null);
 
-  const fetchDashboardData = async () => {
-    setLoading(true);
+  const fetchDashboardData = async (isBackground = false) => {
+    if (!isBackground && !dashboardCache) {
+      setLoading(true);
+    }
     try {
       const [bookingsRes, rulesRes] = await Promise.all([
         fetch(`${API_URL}/api/admin/bookings`).then(r => parseApiResponse(r, 'Failed to fetch bookings')),
         fetch(`${API_URL}/api/admin/calendar-rules`).then(r => parseApiResponse(r, 'Failed to fetch rules')).catch(() => [])
       ]);
-      setBookings(Array.isArray(bookingsRes) ? bookingsRes : []);
-      setRules(Array.isArray(rulesRes) ? rulesRes : []);
-      setLastUpdated(new Date());
+      const nextBookings = Array.isArray(bookingsRes) ? bookingsRes : [];
+      const nextRules = Array.isArray(rulesRes) ? rulesRes : [];
+      const nextDate = new Date();
+
+      dashboardCache = {
+        bookings: nextBookings,
+        rules: nextRules,
+        lastUpdated: nextDate
+      };
+
+      setBookings(nextBookings);
+      setRules(nextRules);
+      setLastUpdated(nextDate);
     } catch (err) {
       console.error('Error fetching dashboard overview data:', err);
     } finally {
@@ -44,8 +59,14 @@ export default function OverviewDashboard({ onNavigate }) {
   };
 
   useEffect(() => {
-    fetchDashboardData();
+    fetchDashboardData(Boolean(dashboardCache));
   }, []);
+
+  useEffect(() => {
+    if (isActive && dashboardCache) {
+      fetchDashboardData(true);
+    }
+  }, [isActive]);
 
   // Today normalized
   const today = new Date();
@@ -209,7 +230,11 @@ export default function OverviewDashboard({ onNavigate }) {
         <div className="metric-card emerald">
           <div className="metric-card-content">
             <div className="metric-title">Confirmed Bookings</div>
-            <div className="metric-value">{confirmedBookings.length}</div>
+            {loading ? (
+              <div className="metric-skeleton-shimmer"></div>
+            ) : (
+              <div className="metric-value">{confirmedBookings.length}</div>
+            )}
           </div>
           <div className="metric-icon-box">
             <CalendarCheck size={24} />
@@ -220,7 +245,11 @@ export default function OverviewDashboard({ onNavigate }) {
         <div className="metric-card blue">
           <div className="metric-card-content">
             <div className="metric-title">Total Revenue</div>
-            <div className="metric-value">₹{totalRevenue.toLocaleString('en-IN')}</div>
+            {loading ? (
+              <div className="metric-skeleton-shimmer"></div>
+            ) : (
+              <div className="metric-value">₹{totalRevenue.toLocaleString('en-IN')}</div>
+            )}
           </div>
           <div className="metric-icon-box">
             <IndianRupee size={24} />
@@ -231,7 +260,11 @@ export default function OverviewDashboard({ onNavigate }) {
         <div className="metric-card purple">
           <div className="metric-card-content">
             <div className="metric-title">Total Guests</div>
-            <div className="metric-value">{totalGuests}</div>
+            {loading ? (
+              <div className="metric-skeleton-shimmer"></div>
+            ) : (
+              <div className="metric-value">{totalGuests}</div>
+            )}
           </div>
           <div className="metric-icon-box">
             <Users size={24} />
@@ -242,7 +275,11 @@ export default function OverviewDashboard({ onNavigate }) {
         <div className="metric-card rose">
           <div className="metric-card-content">
             <div className="metric-title">Calendar Rules</div>
-            <div className="metric-value">{rules.length}</div>
+            {loading ? (
+              <div className="metric-skeleton-shimmer"></div>
+            ) : (
+              <div className="metric-value">{rules.length}</div>
+            )}
           </div>
           <div className="metric-icon-box">
             <CalendarRange size={24} />
@@ -257,7 +294,7 @@ export default function OverviewDashboard({ onNavigate }) {
             <h2>Upcoming Check-ins</h2>
             <span className="checkins-badge">
               <Clock size={13} />
-              Next 4 Days ({next4DaysCount})
+              Next 4 Days ({loading ? '...' : next4DaysCount})
             </span>
           </div>
 
@@ -267,7 +304,7 @@ export default function OverviewDashboard({ onNavigate }) {
               className={`checkins-tab ${filterTab === 'next4' ? 'active' : ''}`}
               onClick={() => setFilterTab('next4')}
             >
-              Next 4 Days ({next4DaysCount})
+              Next 4 Days ({loading ? '...' : next4DaysCount})
             </button>
             <button 
               type="button"
@@ -295,13 +332,28 @@ export default function OverviewDashboard({ onNavigate }) {
               className={`checkins-tab ${filterTab === 'all' ? 'active' : ''}`}
               onClick={() => setFilterTab('all')}
             >
-              All Upcoming ({allUpcoming.length})
+              All Upcoming ({loading ? '...' : allUpcoming.length})
             </button>
           </div>
         </div>
 
         {/* Guests Table */}
-        {filteredGuests.length > 0 ? (
+        {loading ? (
+          <div className="checkins-skeleton-container">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="checkins-skeleton-row">
+                <div className="checkins-skeleton-cell" style={{ width: '40px' }}></div>
+                <div className="checkins-skeleton-cell" style={{ width: '110px' }}></div>
+                <div className="checkins-skeleton-cell" style={{ width: '150px' }}></div>
+                <div className="checkins-skeleton-cell" style={{ width: '120px' }}></div>
+                <div className="checkins-skeleton-cell" style={{ width: '100px' }}></div>
+                <div className="checkins-skeleton-cell" style={{ width: '90px' }}></div>
+                <div className="checkins-skeleton-cell" style={{ width: '90px' }}></div>
+                <div className="checkins-skeleton-cell" style={{ width: '80px' }}></div>
+              </div>
+            ))}
+          </div>
+        ) : filteredGuests.length > 0 ? (
           <div className="checkins-table-container">
             <table className="checkins-table">
               <thead>

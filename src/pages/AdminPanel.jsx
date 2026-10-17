@@ -105,7 +105,7 @@ export default function AdminPanel() {
 
       {/* Content */}
       <div className="admin-content">
-        {activePage === 'dashboard' && <OverviewDashboard onNavigate={handleNavClick} />}
+        {activePage === 'dashboard' && <OverviewDashboard onNavigate={handleNavClick} isActive={activePage === 'dashboard'} />}
         {activePage === 'calendar' && <AdminDashboard />}
         {activePage === 'bookings' && <BookingList />}
         {activePage === 'calendar-rules' && <CalendarRulesList onNavigate={handleNavClick} />}
